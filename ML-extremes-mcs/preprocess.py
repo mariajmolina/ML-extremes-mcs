@@ -2,7 +2,7 @@ import xarray as xr
 import numpy as np
 
 
-def slice_model_grid(mask, data, lev, var, lat='lat', lon='lon'):
+def slice_model_grid(data_mask, data, lev, var, lat='lat', lon='lon'):
     """
     Slice the variable data on raw model grid (hybrid) to match the mask data.
     
@@ -19,14 +19,14 @@ def slice_model_grid(mask, data, lev, var, lat='lat', lon='lon'):
     """
     datavar = data[var]
     datavar = datavar.isel(lev=lev,
-                           lat=slice(np.where(datavar[lat].values==data_mask[lat][0].values)[0][0],
-                                     np.where(datavar[lat].values==data_mask[lat][-1].values)[0][0]+1),
-                           lon=slice(np.where(datavar[lon].values==data_mask[lon][0].values)[0][0],
-                                     np.where(datavar[lon].values==data_mask[lon][-1].values)[0][0]+1))
+                           lat=slice(np.where(datavar[lat].values==data_mask['lat'][0].values)[0][0],
+                                     np.where(datavar[lat].values==data_mask['lat'][-1].values)[0][0]+1),
+                           lon=slice(np.where(datavar[lon].values==data_mask['lon'][0].values)[0][0],
+                                     np.where(datavar[lon].values==data_mask['lon'][-1].values)[0][0]+1))
     return datavar
 
 
-def slice_plevs_grid(mask, data, ncl5, var, lat='lat', lon='lon'):
+def slice_plevs_grid(data_mask, data, ncl5, var, lat='lat', lon='lon'):
     """
     Slice the variable data on pressure level grid to match the mask data.
     
@@ -43,10 +43,10 @@ def slice_plevs_grid(mask, data, ncl5, var, lat='lat', lon='lon'):
     """
     datavar = data[var]
     datavar = datavar.isel(ncl5=ncl5,
-                           lat=slice(np.where(datavar[lat].values==data_mask[lat][0].values)[0][0],
-                                     np.where(datavar[lat].values==data_mask[lat][-1].values)[0][0]+1),
-                           lon=slice(np.where(datavar[lon].values==data_mask[lon][0].values)[0][0],
-                                     np.where(datavar[lon].values==data_mask[lon][-1].values)[0][0]+1))
+                           ncl6=slice(np.where(data[lat].values==data_mask['lat'][0].values)[0][0],
+                                      np.where(data[lat].values==data_mask['lat'][-1].values)[0][0]+1),
+                           ncl7=slice(np.where(data[lon].values==data_mask['lon'][0].values)[0][0],
+                                      np.where(data[lon].values==data_mask['lon'][-1].values)[0][0]+1))
     return datavar
 
 
