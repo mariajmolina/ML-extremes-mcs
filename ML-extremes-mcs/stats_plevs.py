@@ -5,7 +5,7 @@ import numpy as np
 from config import main_path, start_year, end_year
 import argparse
 
-parser = argparse.ArgumentParser(description='Computing permutation feature importance in parallel.')
+parser = argparse.ArgumentParser(description='Computing basic stats to use for data preprocessing.')
 parser.add_argument("--month", required=True, type=str, help="This is the month string choice (3-letter all caps).")
 parser.add_argument("--height", required=True, type=int, help="Height index for pressure level. 0 thru 6; 950 thru 500.")
 parser.add_argument("--variable", required=True, type=str, help="Variable for computation.")
