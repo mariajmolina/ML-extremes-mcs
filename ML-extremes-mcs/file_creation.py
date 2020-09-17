@@ -43,7 +43,7 @@ class GenerateTrainData:
         Create dictionary of the indices using study time range.
         These indices must be fixed values, hence not using custom time ranges.
         """
-        alldates = pd.date_range(start=f'04-01-1991', end='07-31-2005', freq='3H')
+        alldates = pd.date_range(start=f'04-01-1991', end='07-31-2005 23:00:00', freq='3H')
         alldates = alldates[(alldates.month>=4)&(alldates.month<=7)]
         dict_dates = {}
         for i, j in enumerate(alldates):
@@ -119,7 +119,7 @@ class GenerateTrainData:
         
     def generate_masks(self):
         """
-        Save the files for each time period and variable with respective ID.
+        Save the files for each time period and mask with respective ID.
         """
         print("starting mask file generation...")
         yr_array = self.make_years()
