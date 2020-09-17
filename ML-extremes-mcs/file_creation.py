@@ -116,3 +116,17 @@ class GenerateTrainData:
                     indx_val = indx_array[pd.to_datetime(t.astype('str').values)]
                     tmpdata.to_netcdf(f"{self.main_directory}/dl_files/plev_{self.variable}_hgt{self.height}_ID{indx_val}.nc")
         print("Job complete!")
+        
+    def generate_masks(self):
+        """
+        Save the files for each time period and variable with respective ID.
+        """
+        print("starting mask file generation...")
+        yr_array = self.make_years()
+        indx_array = self.make_dict()
+        mask = self.open_mask_file()
+        for t in mask.time:
+            tmpmask = mask.sel(time=t)
+            indx_val = indx_array[pd.to_datetime(t.astype('str').values)]
+            tmpmask.to_netcdf(f"{self.main_directory}/dl_files/mask_ID{indx_val}.nc")
+        print("Job complete!")
