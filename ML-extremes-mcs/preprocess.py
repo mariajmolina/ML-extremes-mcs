@@ -24,6 +24,27 @@ def slice_model_grid(data_mask, data, lev, var, lat='lat', lon='lon'):
                                      np.where(datavar[lon].values==data_mask['lon'][-1].values)[0][0]+1))
     return datavar
 
+def slice_003_grid(data_mask, data, var, lat='lat', lon='lon'):
+    """
+    Slice the variable data on single level grid (hybrid) to match the mask data for 003 member.
+    
+    Args:
+        mask (xarray dataset): MCS object mask.
+        data (xarray dataset): The data to slice.
+        var (str): The variable to use.
+        lat (str): Latitude dimension name. Defaults to ``lat``.
+        lon (str): Longitude dimension name. Defaults to ``lon``.
+        
+    Returns:
+        Variable data sliced to spatial extent of the mask data.
+    """
+    datavar = data[var]
+    datavar = datavar.isel(lat=slice(np.where(datavar[lat].values==data_mask['lat'][0].values)[0][0],
+                                     np.where(datavar[lat].values==data_mask['lat'][-1].values)[0][0]+1),
+                           lon=slice(np.where(datavar[lon].values==data_mask['lon'][0].values)[0][0],
+                                     np.where(datavar[lon].values==data_mask['lon'][-1].values)[0][0]+1))
+    return datavar
+
 def slice_plevs_grid(data_mask, data, ncl5, var, lat='lat', lon='lon'):
     """
     Slice the variable data on pressure level grid to match the mask data.
