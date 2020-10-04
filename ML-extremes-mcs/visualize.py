@@ -40,7 +40,7 @@ def grid2gif(image_str, output_gif):
     """
     str1 = 'convert -delay 8 -loop 0 ' + image_str  + ' ' + output_gif
     subprocess.call(str1, shell=True)
-    
+
 def print_mask_info(data):
     """
     Print mask info, including locations of not null masks.
@@ -112,8 +112,8 @@ def create_mask_plot(data, time_indx, STATES, cmap="Reds"):
     ax.coastlines()
     return plt.show()
 
-def create_002notonelev_plot(data, data_mask, time_indx, hght_indx, variable, STATES,
-                             cmap='viridis', vmin=None, vmax=None):
+def create_002multilev_plot(data, data_mask, time_indx, hght_indx, variable, STATES, savedir,
+                             cmap='viridis', vmin=None, vmax=None, dpi=200):
     """
     Function to plot the variable data.
     These are the 002 member plots that are on several levels (e.g., V, U).
@@ -126,6 +126,7 @@ def create_002notonelev_plot(data, data_mask, time_indx, hght_indx, variable, ST
         hght_indx (int): Integer of height index.
         variable (str): The name of the variable in the file.
         STATES (cartopy feature): US STATES file.
+        savedir (str): Directory to save the figure in.
         cmap (str): Colormap name option from matplotlib. Defaults to ``viridis``.
         vmin (float): Set minimum for plot. Defaults to ``None``.
         vmax (float): Set maximum for plot. Defaults to ``None``.
@@ -148,10 +149,14 @@ def create_002notonelev_plot(data, data_mask, time_indx, hght_indx, variable, ST
     ax.add_feature(cf.BORDERS)
     ax.margins(x=0,y=0)
     ax.coastlines()
-    return plt.show()
+    if not savefig:
+        return plt.show()
+    if savefig:
+        plt.savefig(f"{savedir}/mcsquad_{time_indx}.png", bbox_inches='tight', dpi=dpi)
+        plt.close()
 
-def create_002onelev_plot(data, data_mask, time_indx, variable, STATES,
-                          cmap='viridis', vmin=None, vmax=None):
+def create_002onelev_plot(data, data_mask, time_indx, variable, STATES, savedir,
+                          cmap='viridis', vmin=None, vmax=None, dpi=200):
     """
     Function to plot the variable data.
     These are the 002 member plots that are on one level (e.g., CAPE).
@@ -163,6 +168,7 @@ def create_002onelev_plot(data, data_mask, time_indx, variable, STATES,
         time_indx (int): Integer of time index.
         variable (str): The name of the variable in the file.
         STATES (cartopy feature): US STATES file.
+        savedir (str): Directory to save the figure in.
         cmap (str): Colormap name option from matplotlib. Defaults to ``viridis``.
         vmin (float): Set minimum for plot. Defaults to ``None``.
         vmax (float): Set maximum for plot. Defaults to ``None``.
@@ -183,4 +189,8 @@ def create_002onelev_plot(data, data_mask, time_indx, variable, STATES,
     ax.add_feature(cf.BORDERS)
     ax.margins(x=0,y=0)
     ax.coastlines()
-    return plt.show()
+    if not savefig:
+        return plt.show()
+    if savefig:
+        plt.savefig(f"{savedir}/mcs_002onelev_{time_indx}.png", bbox_inches='tight', dpi=dpi)
+        plt.close()
