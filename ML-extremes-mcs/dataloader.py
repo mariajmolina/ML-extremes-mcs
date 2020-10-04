@@ -1,24 +1,43 @@
 import numpy as np
 import keras
 import xarray as xr
-from config import main_path
+from config import main_path_003
 
 class DataGenerator(keras.utils.Sequence):
     """
     Generates data for Keras training.
+    
+    Args:
+        list_IDs (array): List of IDs for training.
+        path_dataID (str): Directory path to ID files.
+        variable (str): Variable(s) string as a list.
+        ens_num (str): CESM model run number (e.g., ``003``).
+        instant (boolean): Whether the variable is instantaneous or not. Defaults to ``False``.
+        height ()
+        batch_size (int): Batch size for training. Defaults to ``32``.
+        dim (tuple): Tuple of spatial dimensions of the variable patches. Defaults to ``(106,31)``.
+        n_channels (int): Number of input features (or channels). Defaults to ``1``.
+        n_classes (int): Number of output features (or channels). Defaults to ``2``.
+        shuffle (boolean): Whether to shuffle for training. Defaults to ``True``.
+        
     """
-    def __init__(self, list_IDs, labels, path_dataID, variable, height,
+    def __init__(self, list_IDs, path_dataID, variable, ens_num, instant=False, height=None, 
                  batch_size=32, dim=(106, 81), n_channels=1, n_classes=2, shuffle=True):
         """
         Initialization.
         """
-        self.dim = dim
-        self.batch_size = batch_size
-        self.labels = labels
+        self.list_IDs = list_IDs
         self.path_dataID = path_dataID
         self.variable = variable
+        self.ens_num = ens_num
+        self.instant = instant
+        if self.instant:
+            self.inst_str = 'h4'
+        if not self.instant:
+            self.inst_str = 'h3'    
         self.height = height
-        self.list_IDs = list_IDs
+        self.batch_size = batch_size
+        self.dim = dim
         self.n_channels = n_channels
         self.n_classes = n_classes
         self.shuffle = shuffle
@@ -59,9 +78,13 @@ class DataGenerator(keras.utils.Sequence):
         y = np.empty((self.batch_size, *self.dim, 2), dtype=int)
         # Generate data
         for i, ID in enumerate(list_IDs_temp):
-            # Store sample
-            X[i,:,:,0] = xr.open_dataset(f"{self.path_dataID}/plev_{self.variable}_hgt{self.height}_ID{ID}.nc")[self.variable].values
-            # Store class
+            for j, VAR in enumerate(self.variable):
+                # Store sample(s)
+                if self.ens_num == '002':
+                    X[i,:,:,j] = xr.open_dataset(f"{self.path_dataID}/plev_{VAR}_hgt{self.height}_ID{ID}.nc")[VAR].values
+                if self.ens_num == '003':
+                    X[i,:,:,j] = xr.open_dataset(f"{self.path_dataID}/file003_{self.inst_str}_{VAR}_ID{ID}.nc")[VAR].values
+                # Store class
             y = self.create_binary_mask(y, i)
         return X, y
     
