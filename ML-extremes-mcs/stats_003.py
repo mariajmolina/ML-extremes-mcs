@@ -6,23 +6,18 @@ from config import main_path_003, start_year, end_year
 import argparse
 
 parser = argparse.ArgumentParser(description='Computing basic stats to use for data preprocessing.')
-parser.add_argument("--variable", action='store', required=True, type=str, help="Variable for computation.")
-parser.add_argument("--ensemble", action='store', required=True, type=str, help="Variable for computation.")
-parser.add_argument("--instant", action='store_true', required=False, dest='boolean_switch', help="Select if the variable is instantaneous.")
+parser.add_argument("--variable", required=True, type=str, help="Variable for computation.")
+parser.add_argument("--ensemble", required=True, type=str, help="Variable for computation.")
+parser.add_argument("--hnum", required=True, type=str, help="h3 or h4 option for variable.")
 args=parser.parse_args()
 
 # ensemble and variable for analysis (using index)
 analysis_variable = args.variable
 ens_num = args.ensemble
+inst_str = args.hnum
 
 # create array of years for analysis
 years = pd.date_range(start=start_year+'-01-01', end=end_year+'-01-01', freq='AS-JAN').year
-
-# assign the string for instant versus mean cesm variable
-if args.instant:
-    inst_str = "h4"
-if not args.instant:
-    inst_str = "h3"
 
 # initialize a blank list to use for storing mean values 
 mean_list = []
@@ -56,4 +51,4 @@ xarray_array = xr.Dataset({'averages': (['time'], mean_array),
                            'mins':     (['time'], mins_array)})
 
 # save the file
-xarray_array.to_netcdf(f'{main_path_003}/averages_{month}_{analysis_variab}_plev{analysis_height}.nc')
+xarray_array.to_netcdf(f'{main_path_003}/stats_{inst_str}_{analysis_variable}.nc')
