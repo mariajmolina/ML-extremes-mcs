@@ -1,7 +1,6 @@
 import xarray as xr
 import numpy as np
 
-
 def slice_model_grid(data_mask, data, lev, var, lat='lat', lon='lon'):
     """
     Slice the variable data on raw model grid (hybrid) to match the mask data.
@@ -25,7 +24,6 @@ def slice_model_grid(data_mask, data, lev, var, lat='lat', lon='lon'):
                                      np.where(datavar[lon].values==data_mask['lon'][-1].values)[0][0]+1))
     return datavar
 
-
 def slice_plevs_grid(data_mask, data, ncl5, var, lat='lat', lon='lon'):
     """
     Slice the variable data on pressure level grid to match the mask data.
@@ -48,7 +46,6 @@ def slice_plevs_grid(data_mask, data, ncl5, var, lat='lat', lon='lon'):
                            ncl7=slice(np.where(data[lon].values==data_mask['lon'][0].values)[0][0],
                                       np.where(data[lon].values==data_mask['lon'][-1].values)[0][0]+1))
     return datavar
-
 
 def create_binary_mask(mask, mask_var='binary_tag', scaler=1.):
     """
