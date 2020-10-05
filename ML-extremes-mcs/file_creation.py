@@ -158,12 +158,11 @@ class GenerateTrainData:
         print("starting mask file generation...")
         yr_array = self.make_years()
         indx_array = self.make_dict()
+        
         if self.ens_num == '002':
-            mask = self.open_mask_file()
-            for t in mask.time:
-                tmpmask = mask.sel(time=t)
-                indx_val = indx_array[pd.to_datetime(t.astype('str').values)]
-                tmpmask.to_netcdf(f"{self.main_directory}/dl_files/mask_ID{indx_val}.nc")
+            print('Training options not yet available for member 002')
+            return
+        
         if self.ens_num == '003':
             for yr in yr_array:
                 mask = self.open_mask_file(yr)
