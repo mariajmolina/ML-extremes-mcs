@@ -53,6 +53,8 @@ class GenerateTrainData:
         For 002 use: start_str=f'04-01-1991', end_str=f'07-31-2005 23:00:00'
         """
         alldates = pd.date_range(start=start_str, end=end_str, freq='3H')
+        # cesm doesn't do leap years
+        alldates = alldates[~((alldates.month == 2) & (alldates.day == 29))]
         dict_dates = {}
         for i, j in enumerate(alldates):
             dict_dates[j] = i
