@@ -74,7 +74,7 @@ class DataGenerator(Sequence):
         """ 
         # Initialization
         X = np.empty((self.batch_size, *self.dim, self.n_channels))
-        y = np.empty((self.batch_size, *self.dim, 2), dtype=int)
+        y = np.empty((self.batch_size, *self.dim, self.n_classes), dtype=int)
         # Generate data
         for i, ID in enumerate(list_IDs_temp):
             for j, (VAR, HNUM) in enumerate(zip(self.variable, self.h_num)):
