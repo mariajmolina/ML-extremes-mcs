@@ -109,6 +109,7 @@ class IDSelector:
                             if np.any(tmpmask['binary_tag']==1):
                                 indx_val = indx_array[pd.to_datetime(t.astype('str').values)]
                                 ID_list.append(indx_val)
+            print("ID generation complete.")
             return np.array(ID_list)
 
     def generate_traintest_split(self, allIDs, seed=0):
