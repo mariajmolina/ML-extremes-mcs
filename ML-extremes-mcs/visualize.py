@@ -56,9 +56,10 @@ def print_mask_info(data):
     print(np.argwhere(data.binary_tag.sum(axis=1).sum(axis=1).values!=0).reshape(-1))
     return
 
-def create_003onelev_plot(data, data_mask, time_indx, variable, STATES, cmap='viridis', vmin=None, vmax=None):
+def create_003onelev_plot(data, data_mask, time_indx, variable, STATES, cmap='viridis', 
+                          vmin=None, vmax=None):
     """
-    Function to plot the variable data.
+    Function to plot the variable data (CESM).
     These are the 003 member plots that are on one level (e.g., QBOT, VBOT).
     Dimensions of data variables must be named "time, lat, lon".
     
@@ -93,6 +94,8 @@ def create_mask_plot(data, time_indx, STATES, cmap="Reds"):
     """
     Function to plot MCS masks.
     
+    ** Works with original tempestextremes files.
+    
     Args:
         data (Xarray dataset): The file containing masks.
         time_indx (int): Integer index of mask time.
@@ -112,8 +115,8 @@ def create_mask_plot(data, time_indx, STATES, cmap="Reds"):
     ax.coastlines()
     return plt.show()
 
-def create_002multilev_plot(data, data_mask, time_indx, hght_indx, variable, STATES, savedir,
-                             cmap='viridis', vmin=None, vmax=None, dpi=200):
+def create_002multilev_plot(data, data_mask, time_indx, hght_indx, variable, STATES,
+                             cmap='viridis', vmin=None, vmax=None, dpi=200, savedir=None):
     """
     Function to plot the variable data.
     These are the 002 member plots that are on several levels (e.g., V, U).
@@ -149,14 +152,45 @@ def create_002multilev_plot(data, data_mask, time_indx, hght_indx, variable, STA
     ax.add_feature(cf.BORDERS)
     ax.margins(x=0,y=0)
     ax.coastlines()
-    if not savefig:
+    if not savedir:
         return plt.show()
-    if savefig:
+    if savedir:
         plt.savefig(f"{savedir}/mcsquad_{time_indx}.png", bbox_inches='tight', dpi=dpi)
         plt.close()
+        
+def create_training_plot(data, variable, STATES, cmap='viridis', vmin=None, vmax=None, 
+                         dpi=200, savedir=None, indx=0):
+    """
+    Function to plot the variable data already processed for training.
+    
+    ** Works with processed tempestextremes MASKs (with ID nums) and 
+    ** flextrkr files.
+    
+    Args:
+        data (Xarray dataset): The file contianing CESM variable.
+        variable (str): The name of the variable in the file.
+        STATES (cartopy feature): US STATES file.
+        cmap (str): Colormap name option from matplotlib. Defaults to ``viridis``.
+        vmin (float): Set minimum for plot. Defaults to ``None``.
+        vmax (float): Set maximum for plot. Defaults to ``None``.
+    Returns:
+        Plot of the respective variable.
+    """
+    fig = plt.figure(figsize=(6.,4.))
+    ax = plt.axes([0.,0.,1.,1.], projection=ccrs.PlateCarree())
+    data[variable].plot.pcolormesh(cmap=cmap, vmin=vmin, vmax=vmax, cbar_kwargs={'extend': 'both'})
+    ax.add_feature(STATES, facecolor='none', edgecolor='k', zorder=30)
+    ax.add_feature(cf.BORDERS)
+    ax.margins(x=0,y=0)
+    ax.coastlines()
+    if not savedir:
+        return plt.show()
+    if savedir:
+        plt.savefig(f"{savedir}/trainplot_{variable}_{indx}.png", bbox_inches='tight', dpi=dpi)
+        plt.close()
 
-def create_002onelev_plot(data, data_mask, time_indx, variable, STATES, savedir,
-                          cmap='viridis', vmin=None, vmax=None, dpi=200):
+def create_002onelev_plot(data, data_mask, time_indx, variable, STATES, cmap='viridis', 
+                          vmin=None, vmax=None, dpi=200, savedir=None):
     """
     Function to plot the variable data.
     These are the 002 member plots that are on one level (e.g., CAPE).
@@ -189,8 +223,8 @@ def create_002onelev_plot(data, data_mask, time_indx, variable, STATES, savedir,
     ax.add_feature(cf.BORDERS)
     ax.margins(x=0,y=0)
     ax.coastlines()
-    if not savefig:
+    if not savedir:
         return plt.show()
-    if savefig:
+    if savedir:
         plt.savefig(f"{savedir}/mcs_002onelev_{time_indx}.png", bbox_inches='tight', dpi=dpi)
         plt.close()
