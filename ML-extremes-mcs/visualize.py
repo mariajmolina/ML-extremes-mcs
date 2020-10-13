@@ -164,7 +164,7 @@ def create_training_plot(data, variable, STATES, cmap='viridis', vmin=None, vmax
     Function to plot the variable data already processed for training.
     
     ** Works with processed tempestextremes MASKs (with ID nums) and 
-    ** flextrkr files.
+    ** flextrkr files (if .isel(time=0) and variable=cloudtracknumber).
     
     Args:
         data (Xarray dataset): The file contianing CESM variable.
