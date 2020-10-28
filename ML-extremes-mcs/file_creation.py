@@ -5,7 +5,6 @@ import xesmf as xe
 import calendar
 import pickle
 from calendar import monthrange
-from config import main_path_003, start_year, end_year
 
 class GenerateTrainData:
     """
@@ -19,7 +18,8 @@ class GenerateTrainData:
         math_path (str): Path where files are located.
         start_year (int): Start year of analysis.
         end_year (int): Final year of analysis.
-        variable (str): Variable for file generation. Defaults to ``None``.
+        variable (str): Variable for file generation. Defaults to ``None``. Options for ``era5`` to 
+                        ``2d``, ``2t``, ``10u``, ``10v``, and ``sp``.
         ens_num (str): The CESM CAM ensemble number (can be 002, 003, or era5). Defaults to ``era5``.
         era5_directory (str): Location of ERA5 files in RDA (ds: 633.0).
         mcs_directory (str): Location of MCS obs generated using obs.
@@ -112,7 +112,7 @@ class GenerateTrainData:
             data = xr.open_dataset(
                 f'{self.main_directory}/b.e13.B20TRC5CN.ne120_g16.003.cam.{self.inst_str}.{self.variable}.{year}010100Z-{year}123121Z.regrid.23x0.31.nc')
         if self.ens_num == 'era5':
-            last_day = self.cesm_last_day(int(year),int(month))
+            last_day = monthrange(int(year),int(month))[1]
             data = xr.open_mfdataset(
                 f'{self.era5_directory}/{era_dir}/{year}{month}/*_{self.variable}.*.{year}{month}0100_{year}{month}{last_day}23.nc')
         return data
@@ -159,18 +159,21 @@ class GenerateTrainData:
                                              np.where(data[lon].values==lon1_bnd+360)[0][0]+1))
         return data
 
-    def regrid_mask(self, ds, msk_var='cloudtracknumber', method='bilinear', 
-                    lat_coord='lat', lon_coord='lon', offset=0.125, dcoord=0.25):
+    def regrid_mask(self, ds, msk_var='cloudtracknumber', method='nearest_s2d', 
+                    lat_coord='lat', lon_coord='lon', offset=0.125, dcoord=0.25, reuse_weights=False):
         """
         Function to regrid mcs obs mask onto coarser ERA5 grid (0.25-degree).
         Args:
             ds (xarray dataset): Mask file.
             msk_var (str): Variable name in mask file.
-            method (str): Regrid method. Defaults to ``bilinear``.
+            method (str): Regrid method. Defaults to ``nearest_s2d``. Options include 
+                          'bilinear', 'conservative', 'nearest_s2d', 'nearest_d2s', 'patch'.
             lat_coord (str): Latitude coordinate name in file. Defaults to ``lat``.
             lon_coord (str): Longitude coordinate name in file. Defaults to ``lon``.
             offset (float): Value to recenter grid by. Defaults to ``0.125``.
             dcoord (float): Distance between lat/lons. Defaults to ``0.25``.
+            reuse_weights (boolean): Whether to use precomputed weights to speed up calculation.
+                                     Defaults to ``False``.
         Returns:
             Regridded mask file for use with machine learning model.
         """
@@ -180,32 +183,35 @@ class GenerateTrainData:
         lon1_bnd = int(np.around(ds[lon_coord].max(skipna=True).values))
         ds_out = xe.util.grid_2d(lon0_b=lon0_bnd-offset, lon1_b=lon1_bnd+offset, d_lon=dcoord, 
                                  lat0_b=lat0_bnd-offset, lat1_b=lat1_bnd+offset, d_lat=dcoord)
-        regridder = xe.Regridder(ds, ds_out, method)
+        if method == 'conservative':
+            latb = np.hstack([(ds['lat']-((ds['lat'][1]-ds['lat'][0])/2)),ds['lat'][-1]+((ds['lat'][1]-ds['lat'][0])/2)])
+            lonb = np.hstack([(ds['lon']-((ds['lon'][1]-ds['lon'][0])/2)),ds['lon'][-1]+((ds['lon'][1]-ds['lon'][0])/2)])
+            ds = ds.assign_coords({'lat_b':(latb),
+                                   'lon_b':(lonb)})
+        regridder = xe.Regridder(ds, ds_out, method, reuse_weights=reuse_weights)
         dr_out = regridder(ds[msk_var])
         return dr_out.fillna(0.0)
 
-    def generate_files(self, pre_dict=False, dict_freq='3H', start_str=None, end_str=None, dictsave=None):
+    def generate_files(self, pre_dict=True, dict_freq='3H', start_str=None, end_str=None, dictsave=None):
         """
         Save the files for each time period and variable with respective ID.
         Args:
-            pre_dict (boolean): If ``True``, open pre-saved dictionary file of indices.
-                                Defaults to ``False``.
-            dict_freq (str): Files of specific hourly time spacing. Defaults to ``3H``
-                             for 3-hourly.
+            pre_dict (boolean): If ``True``, open pre-saved dictionary file of indices. Defaults to ``True``.
+            dict_freq (str): Files of specific hourly time spacing. Defaults to ``3H`` for 3-hourly.
             start_str and end_str (str): Start and end times for date range.
                 For 003 use: start_str=f'01-01-2000 03:00:00', end_str=f'01-01-2006 00:00:00'
                 For era5 use: start_str='2004-01-01 00:00:00', end_str='2016-12-31 23:00:00'
             dictsave (str): Path to save dictionary containing indices.
         """
         print("starting file generation...")
-        yr_array = self.make_years()
         if not pre_dict:
             indx_array = self.make_dict(start_str=start_str, end_str=end_str, frequency=dict_freq, savepath=dictsave)
-        if predict:
+        if pre_dict:
             with open(f'{self.main_directory}/mcs_dict_{dict_freq}.pkl', 'rb') as handle:
                 indx_array = pickle.load(handle)
         print("opening variable file...")
         if self.ens_num == '003':
+            yr_array = self.make_years()
             for yr in yr_array:
                 mask = self.open_mask_file(yr)
                 data = self.open_variable_file(yr)
@@ -217,36 +223,35 @@ class GenerateTrainData:
                     indx_val = indx_array[pd.to_datetime(t.astype('str').values)]
                     tmpdata.to_netcdf(f"{self.main_directory}/dl_files/file003_{self.inst_str}_{self.variable}_ID{indx_val}.nc")
         if self.ens_num == 'era5':
+            # a random creation of a mask coarsened file for slicing era5 files
+            mask = self.open_mask_file(year='2005', month='01', day='01', hour='03')
+            mask = self.regrid_mask(mask)
             for indx_val, indx_dt in indx_array.items():
-                mask = self.open_mask_file(year=indx_dt.strftime('%Y'), month=indx_dt.strftime('%m'), 
-                                           day=indx_dt.strftime('%d'), hour=indx_dt.strftime('%H'))
                 data = self.open_variable_file(year=indx_dt.strftime('%Y'), month=indx_dt.strftime('%m'), era_dir='e5.oper.an.sfc')
-                data = self.slice_grid(mask, data, lat='latitude', lon='longitude')
                 tmpdata = data.sel(time=indx_dt)
+                tmpdata = self.slice_grid(mask, tmpdata, lat='latitude', lon='longitude')
                 tmpdata.to_netcdf(f"{self.main_directory}/dl_files/{dict_freq}/file003_{self.variable}_ID{indx_val}.nc")
         print("Job complete!")
 
-    def generate_masks(self, pre_dict=False, dict_freq='3H', start_str=None, end_str=None, dictsave=None):
+    def generate_masks(self, pre_dict=True, dict_freq='3H', start_str=None, end_str=None, dictsave=None):
         """
         Save the files for each time period and mask with respective ID.
         Args:
-            pre_dict (boolean): If ``True``, open pre-saved dictionary file of indices.
-                                Defaults to ``False``.
-            dict_freq (str): Files of specific hourly time spacing. Defaults to ``3H``
-                             for 3-hourly.
+            pre_dict (boolean): If ``True``, open pre-saved dictionary file of indices. Defaults to ``True``.
+            dict_freq (str): Files of specific hourly time spacing. Defaults to ``3H`` for 3-hourly.
             start_str and end_str (str): Start and end times for date range.
                 For 003 use: start_str=f'01-01-2000 03:00:00', end_str=f'01-01-2006 00:00:00'
                 For era5 use: start_str='2004-01-01 00:00:00', end_str='2016-12-31 23:00:00'
             dictsave (str): Path to save dictionary containing indices.
         """
         print("starting mask file generation...")
-        yr_array = self.make_years()
         if not pre_dict:
             indx_array = self.make_dict(start_str=start_str, end_str=end_str, frequency=dict_freq, savepath=dictsave)
         if pre_dict:
             with open(f'{self.main_directory}/mcs_dict_{dict_freq}.pkl', 'rb') as handle:
                 indx_array = pickle.load(handle)
         if self.ens_num == '003':
+            yr_array = self.make_years()
             for yr in yr_array:
                 mask = self.open_mask_file(yr)
                 for t in mask.time:
@@ -254,9 +259,11 @@ class GenerateTrainData:
                     indx_val = indx_array[pd.to_datetime(t.astype('str').values)]
                     tmpmask.to_netcdf(f"{self.main_directory}/dl_files/mask_ID{indx_val}.nc")
         if self.ens_num == 'era5':
+            reuse_wghts = False
             for indx_val, indx_dt in indx_array.items():
                 mask = self.open_mask_file(year=indx_dt.strftime('%Y'), month=indx_dt.strftime('%m'), 
                                            day=indx_dt.strftime('%d'), hour=indx_dt.strftime('%H'))
-                tmpmask = self.regrid_mask(mask)
+                tmpmask = self.regrid_mask(mask, reuse_weights=reuse_wghts)
                 tmpmask.to_netcdf(f"{self.main_directory}/dl_files/{dict_freq}/mask_ID{indx_val}.nc")
+                reuse_wghts = True
         print("Job complete!")
