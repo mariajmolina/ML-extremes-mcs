@@ -2,6 +2,7 @@ import xarray as xr
 import numpy as np
 import pandas as pd
 import calendar
+import pickle
 from config import main_path_003, start_year, end_year
 
 class IDSelector:
@@ -19,13 +20,13 @@ class IDSelector:
         mcs_only (boolean): Set to ``True`` if only training with masks containing MCSs. Defaults to ``False``.
         percent_train (float): Set to percentage of IDs desired for training set. Remainer will be used for test set. 
                                Defaults to ``0.7``, which is a 70/30 split, 70% for training and 30% for testing.
-        ens_num (str): The CESM CAM ensemble number. Defaults to ``003``.
+        ens_num (str): The CESM CAM ensemble number. Defaults to ``era5``.
     """
 
     def __init__(self, main_path, start_year, end_year, month_only=None, year_only=None, mcs_only=False, 
-                 percent_train=0.7, ens_num='003'):
+                 percent_train=0.7, ens_num='era5'):
         
-        self.main_path = main_path
+        self.main_directory = main_path
         self.start_year = start_year
         self.end_year = end_year
         self.month_only = month_only
@@ -40,47 +41,115 @@ class IDSelector:
         """
         return calendar.month_abbr[self.month].upper()
 
-    def make_dict(self, start_str=f'01-01-2000 03:00:00', end_str=f'01-01-2006 00:00:00'):
+    def make_dict(self, start_str, end_str, frequency='3H', savepath=None):
         """
         Create dictionary of the indices using study time range.
         These indices must be fixed values for the study time range.
-        For 002 use: start_str=f'04-01-1991', end_str=f'07-31-2005 23:00:00'
+        Args:
+            start_str and end_str (str): Start and end times for date range.
+                For 002 use: start_str=f'04-01-1991', end_str=f'07-31-2005 23:00:00'
+                For 003 use: start_str=f'01-01-2000 03:00:00', end_str=f'01-01-2006 00:00:00'
+                For era5 use: start_str='2004-01-01 00:00:00', end_str='2016-12-31 23:00:00'
+            frequency (str): Spacing for time intervals. E.g., ``3H``.
+            savepath (str): Path to save dictionary containing indices.
         """
-        alldates = pd.date_range(start=start_str, end=end_str, freq='3H')
+        alldates = pd.date_range(start=start_str, end=end_str, freq=frequency)
         # cesm doesn't do leap years
         alldates = alldates[~((alldates.month == 2) & (alldates.day == 29))]
         dict_dates = {}
-        for i, j in enumerate(alldates):
-            dict_dates[j] = i
-        return dict_dates
+        if self.ens_num == '003' or self.ens_num == '002':
+            for i, j in enumerate(alldates):
+                dict_dates[j] = i
+            return dict_dates
+        if self.ens_num == 'era5':
+            # file indices for dictionary -- not enumerate since some masks missing
+            # this option also provides flexibility for 3H or 1H
+            j = 0
+            yrs = alldates.strftime('%Y')
+            mos = alldates.strftime('%m')
+            dys = alldates.strftime('%d')
+            hrs = alldates.strftime('%H')
+            yrorig = yrs[0]
+            for i, yr, mo, dy, hr in zip(alldates, yrs, mos, dys, hrs):
+                try:
+                    self.open_mask_file(yr, mo, dy, hr)
+                    dict_dates[j] = i
+                    j += 1
+                    if yrorig != yr:
+                        print(f"{yrorig} completed")
+                        yrorig = yr
+                except FileNotFoundError:
+                    continue
+            if savepath:
+                with open(f'{savepath}/mcs_dict_{frequency}.pkl', 'wb') as handle:
+                    pickle.dump(dict_dates, handle, protocol=pickle.HIGHEST_PROTOCOL)
+            if not savepath:
+                return dict_dates
+            
+    def open_dict(self, pre_dict=True, dict_freq='3H', start_str=None, end_str=None, dictsave=None):
+        """
+        Open dictionary. 
+        Args:
+            pre_dict (boolean): If ``True``, open pre-saved dictionary file of indices. Defaults to ``True``.
+            dict_freq (str): Files of specific hourly time spacing. Defaults to ``3H`` for 3-hourly.
+            start_str and end_str (str): Start and end times for date range.
+                For 003 use: start_str=f'01-01-2000 03:00:00', end_str=f'01-01-2006 00:00:00'
+                For era5 use: start_str='2004-01-01 00:00:00', end_str='2016-12-31 23:00:00'
+            dictsave (str): Path to save dictionary containing indices.
+        """
+        print("starting mask file generation...")
+        if not pre_dict:
+            indx_array = self.make_dict(start_str=start_str, end_str=end_str, frequency=dict_freq, savepath=dictsave)
+        if pre_dict:
+            with open(f'{self.main_directory}/mcs_dict_{dict_freq}.pkl', 'rb') as handle:
+                indx_array = pickle.load(handle)
+        return indx_array
 
     def make_years(self):
         """
         Returns array of years for data generation.
         """
-        years = pd.date_range(start=self.start_year+'-01-01', end=self.end_year+'-01-01', freq='AS-JAN').year
+        years = pd.date_range(start=str(self.start_year)+'-01-01', end=str(self.end_year)+'-01-01', freq='AS-JAN').year
         return years
 
-    def open_mask_file(self, year=None):
+    def open_mask_file(self, year=None, dict_freq=None, indx_val=None):
         """
         Open the MCS mask file.
+        Args:
+            year (str): Year. Defaults to ``None``.
+            dict_freq (str): Defaults to ``None``.
+            indx_val (str): Defaults to ``None``.
         """
-        if self.ens_num == '002':
-            mask = xr.open_dataset(f"{self.main_path}/mask_camPD_{self.make_month()}.nc")
         if self.ens_num == '003':
-            mask = xr.open_dataset(f"{self.main_path}/mask_camPD_{year}.nc")
+            mask = xr.open_dataset(f"{self.main_directory}/mask_camPD_{year}.nc")
+        if self.ens_num == 'era5':
+            mask = xr.open_dataset(f"{self.main_directory}/dl_files/{dict_freq}/mask_ID{indx_val}.nc")
         return mask
 
-    def generate_IDarray(self):
+    def generate_IDarray(self, pre_dict=True, dict_freq='3H', start_str=None, end_str=None, dictsave=None):
         """
         Generate an array of the respective IDs based on predefined choices.
+        Args:
+            pre_dict (boolean): If ``True``, open pre-saved dictionary file of indices. Defaults to ``True``.
+            dict_freq (str): Files of specific hourly time spacing. Defaults to ``3H`` for 3-hourly.
+            start_str and end_str (str): Start and end times for date range.
+                For 003 use: start_str=f'01-01-2000 03:00:00', end_str=f'01-01-2006 00:00:00'
+                For era5 use: start_str='2004-01-01 00:00:00', end_str='2016-12-31 23:00:00'
+            dictsave (str): Path to save dictionary containing indices.
         """
         print("starting ID generation...")
         if not self.year_only:
             yr_array = self.make_years()
         if self.year_only:
             yr_array = self.year_only
-        indx_array = self.make_dict()
+
+        # open indx dictionary
+        if not pre_dict:
+            indx_array = self.make_dict(start_str=start_str, end_str=end_str, frequency=dict_freq, savepath=dictsave)
+        if pre_dict:
+            with open(f'{self.main_directory}/mcs_dict_{dict_freq}.pkl', 'rb') as handle:
+                indx_array = pickle.load(handle)
+        # empty list for id creation
         ID_list = []
         
         if self.ens_num == '002':
@@ -89,7 +158,7 @@ class IDSelector:
         
         if self.ens_num == '003':
             for yr in yr_array:
-                mask = self.open_mask_file(yr)
+                mask = self.open_mask_file(year=yr)
                 for t in mask.time:
                     if not self.month_only and not self.mcs_only:
                         indx_val = indx_array[pd.to_datetime(t.astype('str').values)]
@@ -111,9 +180,28 @@ class IDSelector:
                                 ID_list.append(indx_val)
             print("ID generation complete.")
             return np.array(ID_list)
+                                    
+        if self.ens_num == 'era5':
+            for i, j in indx_array.items():
+                if np.isin(j.year, yr_array):
+                    if not self.month_only and not self.mcs_only:
+                        ID_list.append(i)
+                    if self.month_only and not self.mcs_only:
+                        if np.isin(j.month, self.month_only):
+                            ID_list.append(i)
+                    if self.mcs_only and not self.month_only:
+                        tmpmask = self.open_mask_file(year=None, dict_freq=dict_freq, indx_val=i)
+                        if np.any(tmpmask['cloudtracknumber']!=0):
+                            ID_list.append(i)
+                    if self.month_only and self.mcs_only:
+                        if np.isin(j.month, self.month_only):
+                            tmpmask = self.open_mask_file(year=None, dict_freq=dict_freq, indx_val=i)
+                            if np.any(tmpmask['cloudtracknumber']!=0):
+                                ID_list.append(i)
+            print("ID generation complete.")
+            return np.array(ID_list)
 
     def generate_traintest_split(self, allIDs, seed=0):
-        
         """
         Split the IDs into a train and a test set. The train set will be used to train DL model and
         the test set will be used to evaluate the DL model.
