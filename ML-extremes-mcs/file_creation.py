@@ -16,8 +16,8 @@ class GenerateTrainData:
     
     Attributes:
         math_path (str): Path where files are located.
-        start_year (int): Start year of analysis.
-        end_year (int): Final year of analysis.
+        start_year (int): Start year of analysis. For era5 use 2004.
+        end_year (int): Final year of analysis. For era5 use 2016.
         variable (str): Variable for file generation. Defaults to ``None``. Options for ``era5`` to 
                         ``2d``, ``2t``, ``10u``, ``10v``, and ``sp``.
         ens_num (str): The CESM CAM ensemble number (can be 002, 003, or era5). Defaults to ``era5``.
@@ -84,7 +84,7 @@ class GenerateTrainData:
         """
         Returns array of years for data generation.
         """
-        years = pd.date_range(start=self.year_start+'-01-01', end=self.year_end+'-01-01', freq='AS-JAN').year
+        years = pd.date_range(start=str(self.year_start)+'-01-01', end=str(self.year_end)+'-01-01', freq='AS-JAN').year
         return years
 
     def cesm_last_day(self, year, month):
