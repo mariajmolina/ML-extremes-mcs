@@ -3,14 +3,10 @@ import numpy as np
 import pandas as pd
 import calendar
 import pickle
-from config import main_path_003, start_year, end_year
 
 class IDSelector:
-    
     """Class instantiation of IDSelector:
-    
     Here we will be generating the list of IDs for deep learning model training.
-    
     Attributes:
         math_path (str): Path where mask files are located.
         start_year (int): Start year of analysis.
@@ -22,10 +18,11 @@ class IDSelector:
                                Defaults to ``0.7``, which is a 70/30 split, 70% for training and 30% for testing.
         ens_num (str): The CESM CAM ensemble number. Defaults to ``era5``.
     """
-
     def __init__(self, main_path, start_year, end_year, month_only=None, year_only=None, mcs_only=False, 
                  percent_train=0.7, ens_num='era5'):
-        
+        """
+        Initialization.
+        """
         self.main_directory = main_path
         self.start_year = start_year
         self.end_year = end_year
@@ -50,17 +47,19 @@ class IDSelector:
                 For 002 use: start_str=f'04-01-1991', end_str=f'07-31-2005 23:00:00'
                 For 003 use: start_str=f'01-01-2000 03:00:00', end_str=f'01-01-2006 00:00:00'
                 For era5 use: start_str='2004-01-01 00:00:00', end_str='2016-12-31 23:00:00'
-            frequency (str): Spacing for time intervals. E.g., ``3H``.
-            savepath (str): Path to save dictionary containing indices.
+            frequency (str): Spacing for time intervals. Defaults to ``3H``.
+            savepath (str): Path to save dictionary containing indices. Default to ``None``.
         """
         alldates = pd.date_range(start=start_str, end=end_str, freq=frequency)
         # cesm doesn't do leap years
         alldates = alldates[~((alldates.month == 2) & (alldates.day == 29))]
         dict_dates = {}
+        
         if self.ens_num == '003' or self.ens_num == '002':
             for i, j in enumerate(alldates):
                 dict_dates[j] = i
             return dict_dates
+        
         if self.ens_num == 'era5':
             # file indices for dictionary -- not enumerate since some masks missing
             # this option also provides flexibility for 3H or 1H
@@ -92,10 +91,10 @@ class IDSelector:
         Args:
             pre_dict (boolean): If ``True``, open pre-saved dictionary file of indices. Defaults to ``True``.
             dict_freq (str): Files of specific hourly time spacing. Defaults to ``3H`` for 3-hourly.
-            start_str and end_str (str): Start and end times for date range.
+            start_str and end_str (str): Start and end times for date range. Default to ``None``.
                 For 003 use: start_str=f'01-01-2000 03:00:00', end_str=f'01-01-2006 00:00:00'
                 For era5 use: start_str='2004-01-01 00:00:00', end_str='2016-12-31 23:00:00'
-            dictsave (str): Path to save dictionary containing indices.
+            dictsave (str): Path to save dictionary containing indices. Default to ``None``.
         """
         print("starting mask file generation...")
         if not pre_dict:
@@ -117,7 +116,7 @@ class IDSelector:
         Open the MCS mask file.
         Args:
             year (str): Year. Defaults to ``None``.
-            dict_freq (str): Defaults to ``None``.
+            dict_freq (str): Hourly frequency for training (e.g., ``3H``). Defaults to ``None``.
             indx_val (str): Defaults to ``None``.
         """
         if self.ens_num == '003':
@@ -132,10 +131,10 @@ class IDSelector:
         Args:
             pre_dict (boolean): If ``True``, open pre-saved dictionary file of indices. Defaults to ``True``.
             dict_freq (str): Files of specific hourly time spacing. Defaults to ``3H`` for 3-hourly.
-            start_str and end_str (str): Start and end times for date range.
+            start_str and end_str (str): Start and end times for date range. Default to ``None``.
                 For 003 use: start_str=f'01-01-2000 03:00:00', end_str=f'01-01-2006 00:00:00'
                 For era5 use: start_str='2004-01-01 00:00:00', end_str='2016-12-31 23:00:00'
-            dictsave (str): Path to save dictionary containing indices.
+            dictsave (str): Path to save dictionary containing indices. Default to ``None``.
         """
         print("starting ID generation...")
         if not self.year_only:
@@ -205,7 +204,6 @@ class IDSelector:
         """
         Split the IDs into a train and a test set. The train set will be used to train DL model and
         the test set will be used to evaluate the DL model.
-        
         Args:
             allIDs (numpy array): List of all IDs generated from ``generate_IDarray``.
             seed (int): Seed number for randomizing IDs. Defaults to ``0``.

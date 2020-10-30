@@ -9,11 +9,9 @@ from calendar import monthrange
 class GenerateTrainData:
     """
     Class instantiation of GenerateTrainData:
-    
     Here we will be preprocessing data for deep learning model training.
     The objective is to save files for each time index to subsequently load for training.
     IDs are assigned to each file.
-    
     Attributes:
         math_path (str): Path where files are located.
         start_year (int): Start year of analysis. For era5 use 2004.
@@ -26,7 +24,9 @@ class GenerateTrainData:
     """
     def __init__(self, main_path, start_year, end_year, variable=None,
                  ens_num='era5', era5_directory=None, mcs_directory=None):
-        
+        """
+        Initialization.
+        """
         self.main_directory = main_path
         self.year_start = start_year
         self.year_end = end_year
@@ -45,16 +45,18 @@ class GenerateTrainData:
                 For 003 use: start_str=f'01-01-2000 03:00:00', end_str=f'01-01-2006 00:00:00'
                 For era5 use: start_str='2004-01-01 00:00:00', end_str='2016-12-31 23:00:00'
             frequency (str): Spacing for time intervals. E.g., ``3H``.
-            savepath (str): Path to save dictionary containing indices.
+            savepath (str): Path to save dictionary containing indices. Defaults to ``None``.
         """
         alldates = pd.date_range(start=start_str, end=end_str, freq=frequency)
         # cesm doesn't do leap years
         alldates = alldates[~((alldates.month == 2) & (alldates.day == 29))]
         dict_dates = {}
+        
         if self.ens_num == '003' or self.ens_num == '002':
             for i, j in enumerate(alldates):
                 dict_dates[j] = i
             return dict_dates
+
         if self.ens_num == 'era5':
             # file indices for dictionary -- not enumerate since some masks missing
             # this option also provides flexibility for 3H or 1H
@@ -106,7 +108,7 @@ class GenerateTrainData:
         Args:
             year (str): Year for opening file. Defaults to ``None``.
             month (str): Month for opening file. Defaults to ``None``.
-            era_dir (str): Defaults to ``e5.oper.an.sfc``.
+            era_dir (str): ERA5 directory in NCAR RDA. Defaults to ``e5.oper.an.sfc``.
         """
         if self.ens_num == '003':
             data = xr.open_dataset(
@@ -170,7 +172,7 @@ class GenerateTrainData:
                           'bilinear', 'conservative', 'nearest_s2d', 'nearest_d2s', 'patch'.
             lat_coord (str): Latitude coordinate name in file. Defaults to ``lat``.
             lon_coord (str): Longitude coordinate name in file. Defaults to ``lon``.
-            offset (float): Value to recenter grid by. Defaults to ``0.125``.
+            offset (float): Value to recenter grid by. Defaults to ``0.125`` for 0.25-degree grid.
             dcoord (float): Distance between lat/lons. Defaults to ``0.25``.
             reuse_weights (boolean): Whether to use precomputed weights to speed up calculation.
                                      Defaults to ``False``.
@@ -198,10 +200,10 @@ class GenerateTrainData:
         Args:
             pre_dict (boolean): If ``True``, open pre-saved dictionary file of indices. Defaults to ``True``.
             dict_freq (str): Files of specific hourly time spacing. Defaults to ``3H`` for 3-hourly.
-            start_str and end_str (str): Start and end times for date range.
+            start_str and end_str (str): Start and end times for date range. Default to ``None``.
                 For 003 use: start_str=f'01-01-2000 03:00:00', end_str=f'01-01-2006 00:00:00'
                 For era5 use: start_str='2004-01-01 00:00:00', end_str='2016-12-31 23:00:00'
-            dictsave (str): Path to save dictionary containing indices.
+            dictsave (str): Path to save dictionary containing indices. Default to ``None``.
         """
         print("starting file generation...")
         if not pre_dict:
@@ -209,6 +211,7 @@ class GenerateTrainData:
         if pre_dict:
             with open(f'{self.main_directory}/mcs_dict_{dict_freq}.pkl', 'rb') as handle:
                 indx_array = pickle.load(handle)
+                
         print("opening variable file...")
         if self.ens_num == '003':
             yr_array = self.make_years()
@@ -222,6 +225,7 @@ class GenerateTrainData:
                     tmpdata = tmpdata.to_dataset()
                     indx_val = indx_array[pd.to_datetime(t.astype('str').values)]
                     tmpdata.to_netcdf(f"{self.main_directory}/dl_files/file003_{self.inst_str}_{self.variable}_ID{indx_val}.nc")
+                    
         if self.ens_num == 'era5':
             # a random creation of a mask coarsened file for slicing era5 files
             mask = self.open_mask_file(year='2005', month='01', day='01', hour='03')
@@ -231,6 +235,7 @@ class GenerateTrainData:
                 tmpdata = data.sel(time=indx_dt)
                 tmpdata = self.slice_grid(mask, tmpdata, lat='latitude', lon='longitude')
                 tmpdata.to_netcdf(f"{self.main_directory}/dl_files/{dict_freq}/file_{self.variable}_ID{indx_val}.nc")
+    
         print("Job complete!")
 
     def generate_masks(self, pre_dict=True, dict_freq='3H', start_str=None, end_str=None, dictsave=None):
@@ -239,10 +244,10 @@ class GenerateTrainData:
         Args:
             pre_dict (boolean): If ``True``, open pre-saved dictionary file of indices. Defaults to ``True``.
             dict_freq (str): Files of specific hourly time spacing. Defaults to ``3H`` for 3-hourly.
-            start_str and end_str (str): Start and end times for date range.
+            start_str and end_str (str): Start and end times for date range. Default to ``None``.
                 For 003 use: start_str=f'01-01-2000 03:00:00', end_str=f'01-01-2006 00:00:00'
                 For era5 use: start_str='2004-01-01 00:00:00', end_str='2016-12-31 23:00:00'
-            dictsave (str): Path to save dictionary containing indices.
+            dictsave (str): Path to save dictionary containing indices. Default to ``None``.
         """
         print("starting mask file generation...")
         if not pre_dict:
@@ -250,6 +255,7 @@ class GenerateTrainData:
         if pre_dict:
             with open(f'{self.main_directory}/mcs_dict_{dict_freq}.pkl', 'rb') as handle:
                 indx_array = pickle.load(handle)
+                
         if self.ens_num == '003':
             yr_array = self.make_years()
             for yr in yr_array:
@@ -258,6 +264,7 @@ class GenerateTrainData:
                     tmpmask = mask.sel(time=t)
                     indx_val = indx_array[pd.to_datetime(t.astype('str').values)]
                     tmpmask.to_netcdf(f"{self.main_directory}/dl_files/mask_ID{indx_val}.nc")
+                    
         if self.ens_num == 'era5':
             reuse_wghts = False
             for indx_val, indx_dt in indx_array.items():
@@ -266,4 +273,5 @@ class GenerateTrainData:
                 tmpmask = self.regrid_mask(mask, reuse_weights=reuse_wghts)
                 tmpmask.to_netcdf(f"{self.main_directory}/dl_files/{dict_freq}/mask_ID{indx_val}.nc")
                 reuse_wghts = True
+                
         print("Job complete!")
