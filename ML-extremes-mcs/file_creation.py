@@ -230,7 +230,7 @@ class GenerateTrainData:
                 data = self.open_variable_file(year=indx_dt.strftime('%Y'), month=indx_dt.strftime('%m'), era_dir='e5.oper.an.sfc')
                 tmpdata = data.sel(time=indx_dt)
                 tmpdata = self.slice_grid(mask, tmpdata, lat='latitude', lon='longitude')
-                tmpdata.to_netcdf(f"{self.main_directory}/dl_files/{dict_freq}/file003_{self.variable}_ID{indx_val}.nc")
+                tmpdata.to_netcdf(f"{self.main_directory}/dl_files/{dict_freq}/file_{self.variable}_ID{indx_val}.nc")
         print("Job complete!")
 
     def generate_masks(self, pre_dict=True, dict_freq='3H', start_str=None, end_str=None, dictsave=None):
