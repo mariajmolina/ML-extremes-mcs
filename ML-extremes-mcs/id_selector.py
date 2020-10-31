@@ -19,7 +19,7 @@ class IDSelector:
         ens_num (str): The CESM CAM ensemble number. Defaults to ``era5``.
     """
     def __init__(self, main_path, start_year, end_year, month_only=None, year_only=None, mcs_only=False, 
-                 percent_train=0.7, ens_num='era5'):
+                 percent_train=0.7, ens_num='era5', ):
         """
         Initialization.
         """

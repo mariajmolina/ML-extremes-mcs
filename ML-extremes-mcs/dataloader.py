@@ -7,7 +7,7 @@ class DataGenerator(Sequence):
     """
     Generates data for Keras training.
     Args:
-        list_IDs (array): List of IDs for training.
+        list_IDs (array): Full list of IDs for training.
         path_dataID (str): Directory path to ID files.
         variable (str): Variable(s) string as a list.
         ens_num (str): CESM model run number (e.g., ``era5``).
@@ -16,14 +16,18 @@ class DataGenerator(Sequence):
         height (): Defaults to ``None``.
         batch_size (int): Batch size for training. Defaults to ``32``.
         dim (int tuple): Tuple of spatial dimensions of the variable patches. Defaults to ``(105, 161)`` for era5.
-                     Choose ``(106,81)`` for ``003``.
+                         Choose ``(106,81)`` for ``003``.
         n_channels (int): Number of input features (or channels). Defaults to ``1``.
         n_classes (int): Number of output features (or channels). Defaults to ``2``.
         shuffle (boolean): Whether to shuffle for training. Defaults to ``True``.
+        stats_path (str): Path to the pre-saved statistics files.
+        norm (str): Option for normalizing or standardizing training data. Options include ``zscore`` and ``minmax``.
+                    Defaults to ``None``.
     Based on tutorial/blog: https://stanford.edu/~shervine/blog/keras-how-to-generate-data-on-the-fly
     """
     def __init__(self, list_IDs, path_dataID, variable, ens_num, h_num=None, height=None, 
-                 batch_size=32, dim=(105, 161), n_channels=1, n_classes=2, shuffle=True):
+                 batch_size=32, dim=(105, 161), n_channels=1, n_classes=2, shuffle=True, 
+                 stats_path=None, norm=None):
         """
         Initialization.
         """
@@ -38,6 +42,12 @@ class DataGenerator(Sequence):
         self.n_channels = n_channels
         self.n_classes = n_classes
         self.shuffle = shuffle
+        self.stats_path = stats_path
+        if norm != 'zscore' and norm != 'minmax' and norm != None:
+            raise Exception("Please set norm to ``zscore``, ``minmax``, or ``None``.")
+        self.norm = norm
+        if self.norm:
+            self.stat_a, self.stat_b = self.compute_norm_constants()
         self.on_epoch_end()
 
     def __len__(self):
@@ -86,6 +96,45 @@ class DataGenerator(Sequence):
             VAR = 'VAR_2D'
         return VAR
     
+    def compute_norm_constants(self):
+        """
+        Compute the nomalization or standardization constants.
+        """
+        a_ = np.empty((len(self.list_IDs), self.n_channels))
+        b_ = np.empty((len(self.list_IDs), self.n_channels))
+        for j, VAR in enumerate(self.variable):
+            if self.norm == 'zscore':
+                a_[:, j], b_[:, j], _, _ = dl_stats.era5_train_stats(self.stats_path, VAR, self.list_IDs)
+            if self.norm == 'minmax':
+                _, _, a_[:, j], b_[:, j] = dl_stats.era5_train_stats(self.stats_path, VAR, self.list_IDs)
+        return a_, b_
+    
+    def compute_stats(self, data, a, b):
+        """
+        Compute the standardization or normalization.
+        Args:
+            data (array): Data for specific variable.
+        Returns:
+            data (array) standardized or normalized for training.
+        """
+        if self.norm == 'zscore':
+            return dl_stats.z_score(data, a, b)
+        if self.norm == 'minmax':
+            return dl_stats.min_max_scale(data, a, b)
+        
+    def create_binary_mask(self, y, indx, IDindx, mask_var='cloudtracknumber'):
+        """
+        Create binary mask for cross entropy training.
+        Args:
+            y (array): Labels to populate.
+            indx (int): Enumerated value representing location in label array.
+            IDindx (int): Mask file ID corresponding to training data.
+            mask_var (str): Mask variable name in presaved file. Defaults to ``cloudtracknumber``.
+        """
+        y[indx,:,:,0] = xr.open_dataset(f"{self.path_dataID}/mask_ID{IDindx}.nc")[mask_var].values
+        y[indx,:,:,1] = np.ones(self.dim, dtype=int) - y[indx,:,:,0]
+        return y
+    
     def __data_generation(self, list_IDs_temp):
         """
         Generates data containing batch_size samples. # X : (n_samples, *dim, n_channels)
@@ -96,6 +145,8 @@ class DataGenerator(Sequence):
         y = np.empty((self.batch_size, *self.dim, self.n_classes), dtype=int)
 
         if self.ens_num == '002' or self.ens_num == '003':
+            if self.norm:
+                raise Exception("Norm option not ready for ens members 002 or 003")
             for i, ID in enumerate(list_IDs_temp):
                 for j, (VAR, HNUM) in enumerate(zip(self.variable, self.h_num)):
                     # Store sample(s)
@@ -114,17 +165,7 @@ class DataGenerator(Sequence):
                     X[i,:,:,j] = xr.open_dataset(f"{self.path_dataID}/file003_{VAR}_ID{ID}.nc")[self.era5_vars(VAR)].values
                 # Store class
                 y = self.create_binary_mask(y, i, ID)
+            if self.norm:
+                for j, VAR in enumerate(self.variable):
+                    X[:,:,:,j] = self.compute_stats(X[:,:,:,j], self.stat_a[:,j], self.stat_b[:,j])
         return X, y
-    
-    def create_binary_mask(self, y, indx, IDindx, mask_var='cloudtracknumber'):
-        """
-        Create binary mask for cross entropy training.
-        Args:
-            y (array): Labels to populate.
-            indx (int): Enumerated value representing location in label array.
-            IDindx (int): Mask file ID corresponding to training data.
-            mask_var (str): Mask variable name in presaved file. Defaults to ``cloudtracknumber``.
-        """
-        y[indx,:,:,0] = xr.open_dataset(f"{self.path_dataID}/mask_ID{IDindx}.nc")[mask_var].values
-        y[indx,:,:,1] = np.ones(self.dim, dtype=int) - y[indx,:,:,0]
-        return y

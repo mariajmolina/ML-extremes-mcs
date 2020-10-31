@@ -15,7 +15,7 @@ def generate_era5_IDs(dict_freq):
                       end_year = 2016, 
                       month_only=None, year_only=None, mcs_only=False, 
                       percent_train=0.7, ens_num='era5')
-    IDlist = test.generate_IDarray(pre_dict=True, dict_freq='3H', start_str=None, end_str=None, dictsave=None)
+    IDlist = test.generate_IDarray(pre_dict=True, dict_freq=dict_freq, start_str=None, end_str=None, dictsave=None)
     return IDlist
 
 def run_stats_era(analysis_variable, data_path, ens_num='era5', dict_freq='3H'):
