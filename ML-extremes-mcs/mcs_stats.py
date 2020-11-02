@@ -37,9 +37,9 @@ class MCSstats:
         if return_coords:
             for indx, ID in enumerate(self.IDs):
                 y[indx,:,:] = xr.open_dataset(f"{self.mcs_path}/mask_ID{ID}.nc")[mask_var].values
-                lat = xr.open_dataset(f"{self.mcs_path}/mask_ID{ID}.nc")[lat].values
-                lon = xr.open_dataset(f"{self.mcs_path}/mask_ID{ID}.nc")[lon].values
-            return y, lat, lon
+                lats = xr.open_dataset(f"{self.mcs_path}/mask_ID{ID}.nc")[lat].values
+                lons = xr.open_dataset(f"{self.mcs_path}/mask_ID{ID}.nc")[lon].values
+            return y, lats, lons
 
     def nontracked_total_grid(self, masks):
         """
@@ -67,6 +67,14 @@ class MCSstats:
             masks (numpy array): Mask files loaded by ``open_masks``.
         """
         return len(np.unique(masks[masks > 0]))
+    
+    def tracked_unique_mcs_ids(self, masks):
+        """
+        Return IDs of tracked MCSs.
+        Args:
+            masks (numpy array): Mask files loaded by ``open_masks``.
+        """
+        return np.unique(masks[masks > 0])
 
     def total_with_mcs(self, masks):
         """
