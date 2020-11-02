@@ -20,7 +20,7 @@ class DataGenerator(Sequence):
         n_channels (int): Number of input features (or channels). Defaults to ``1``.
         n_classes (int): Number of output features (or channels). Defaults to ``2``.
         shuffle (boolean): Whether to shuffle for training. Defaults to ``True``.
-        stats_path (str): Path to the pre-saved statistics files.
+        stats_path (str): Path to the pre-saved statistics files. Defaults to ``None``.
         norm (str): Option for normalizing or standardizing training data. Options include ``zscore`` and ``minmax``.
                     Defaults to ``None``.
     Based on tutorial/blog: https://stanford.edu/~shervine/blog/keras-how-to-generate-data-on-the-fly

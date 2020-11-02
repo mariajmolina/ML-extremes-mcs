@@ -83,14 +83,15 @@ def create_003onelev_plot(data, data_mask, time_indx, variable, STATES, cmap='vi
                          np.where(data.lat.values==data_mask.lat[-1].values)[0][0]+1),
                lon=slice(np.where(data.lon.values==data_mask.lon[0].values)[0][0],
                          np.where(data.lon.values==data_mask.lon[-1].values)[0][0]+1))
-    data_isel[variable].plot.pcolormesh(cmap=cmap, vmin=vmin, vmax=vmax)
+    data_isel[variable].plot.pcolormesh(ax=ax, transform=ccrs.PlateCarree(), 
+                                        cmap=cmap, vmin=vmin, vmax=vmax)
     ax.add_feature(STATES, facecolor='none', edgecolor='k', zorder=30)
     ax.add_feature(cf.BORDERS)
     ax.margins(x=0,y=0)
     ax.coastlines()
     return plt.show()
 
-def create_mask_plot(data, time_indx, STATES, cmap="Reds"):
+def create_mask_plot(data, time_indx, STATES, cmap="Reds", lat='lat', lon='lon'):
     """
     Function to plot MCS masks.
     
@@ -106,7 +107,8 @@ def create_mask_plot(data, time_indx, STATES, cmap="Reds"):
     """
     fig = plt.figure(figsize=(6.,4.))
     ax = plt.axes([0.,0.,1.,1.], projection=ccrs.PlateCarree())
-    data.binary_tag.isel(time=time_indx).plot.pcolormesh(ax=ax, 
+    data.binary_tag.isel(time=time_indx).plot.pcolormesh(lon, lat,
+                                                         ax=ax, 
                                                          transform=ccrs.PlateCarree(), 
                                                          vmin=0, vmax=1, cmap=cmap)
     ax.add_feature(STATES, facecolor='none', edgecolor='k', zorder=30)
@@ -140,13 +142,13 @@ def create_002multilev_plot(data, data_mask, time_indx, hght_indx, variable, STA
                               ncl7=("ncl7",data.lon.values))
     fig = plt.figure(figsize=(6.,4.))
     ax = plt.axes([0.,0.,1.,1.], projection=ccrs.PlateCarree())
-    data.isel(
-               ncl4=time_indx,
+    data.isel( ncl4=time_indx,
                ncl5=hght_indx,
                ncl6=slice(np.where(data.lat.values==data_mask.lat[0].values)[0][0],
                           np.where(data.lat.values==data_mask.lat[-1].values)[0][0]+1),
                ncl7=slice(np.where(data.lon.values==data_mask.lon[0].values)[0][0],
                           np.where(data.lon.values==data_mask.lon[-1].values)[0][0]+1))[variable].plot.pcolormesh(
+        ax=ax, transform=ccrs.PlateCarree(), 
         cmap=cmap, vmin=vmin, vmax=vmax)
     ax.add_feature(STATES, facecolor='none', edgecolor='k', zorder=30)
     ax.add_feature(cf.BORDERS)
@@ -158,7 +160,8 @@ def create_002multilev_plot(data, data_mask, time_indx, hght_indx, variable, STA
         plt.savefig(f"{savedir}/mcsquad_{time_indx}.png", bbox_inches='tight', dpi=dpi)
         plt.close()
         
-def create_training_plot(data, variable, STATES, cmap='viridis', vmin=None, vmax=None, 
+def create_training_plot(data, variable, STATES, lat='lat', lon='lon',
+                         cmap='viridis', vmin=None, vmax=None, 
                          dpi=200, savedir=None, indx=0):
     """
     Function to plot the variable data already processed for training.
@@ -178,7 +181,8 @@ def create_training_plot(data, variable, STATES, cmap='viridis', vmin=None, vmax
     """
     fig = plt.figure(figsize=(6.,4.))
     ax = plt.axes([0.,0.,1.,1.], projection=ccrs.PlateCarree())
-    data[variable].plot.pcolormesh(cmap=cmap, vmin=vmin, vmax=vmax, cbar_kwargs={'extend': 'both'})
+    data[variable].plot.pcolormesh(lon, lat, ax=ax, transform=ccrs.PlateCarree(), 
+                                   cmap=cmap, vmin=vmin, vmax=vmax, cbar_kwargs={'extend': 'both'})
     ax.add_feature(STATES, facecolor='none', edgecolor='k', zorder=30)
     ax.add_feature(cf.BORDERS)
     ax.margins(x=0,y=0)
@@ -213,7 +217,8 @@ def create_002onelev_plot(data, data_mask, time_indx, variable, STATES, cmap='vi
                               ncl7=("ncl7", data.lon.values))
     fig = plt.figure(figsize=(6.,4.))
     ax = plt.axes([0.,0.,1.,1.], projection=ccrs.PlateCarree())
-    data.isel( time=time_indx,
+    data.isel( ax=ax, transform=ccrs.PlateCarree(), 
+               time=time_indx,
                lat=slice(np.where(data.lat.values==data_mask.lat[0].values)[0][0],
                          np.where(data.lat.values==data_mask.lat[-1].values)[0][0]+1),
                lon=slice(np.where(data.lon.values==data_mask.lon[0].values)[0][0],
@@ -228,3 +233,55 @@ def create_002onelev_plot(data, data_mask, time_indx, variable, STATES, cmap='vi
     if savedir:
         plt.savefig(f"{savedir}/mcs_002onelev_{time_indx}.png", bbox_inches='tight', dpi=dpi)
         plt.close()
+
+def create_mcs_stat_plot(data, STATES, lat, lon, vmin=0, vmax=10, cmap='BuPu', title=None):
+    """
+    Function to plot MCS stats on maps.
+    ** Works with nontracked_total_grid and tracked_total_grid.
+    Args:
+        data (2d numpy array): The file containing stats.
+        STATES (cartopy feature): US STATES file.
+        lat (1d or 2d numpy array): Latitude.
+        lon (1d or 2d numpy array): Longitude.
+        vmin (int): Minimum value for plot. Defaults to ``0``.
+        vmax (int): Maximum value for plot. Defaults to ``10``.
+        cmap (str): Colormap name option from matplotlib. Defaults to ``BuPU``.
+        title (float, int, or str): Title for plot. Defaults to ``None``.
+    """
+    fig = plt.figure(figsize=(6.,4.))
+    fig, axes = plt.subplots(figsize=(6.,4.), nrows=4, ncols=4, sharex=True, sharey=True)
+    ax = plt.axes([0.,0.,1.,1.], projection=ccrs.PlateCarree())
+    if title:
+        ax.set_title(title)
+    ax.pcolormesh(lon, lat, data, transform=ccrs.PlateCarree(), vmin=vmin, vmax=vmax, cmap=cmap)
+    ax.add_feature(STATES, facecolor='none', edgecolor='k', zorder=30)
+    ax.add_feature(cf.BORDERS)
+    ax.margins(x=0,y=0)
+    ax.coastlines()
+    return plt.show()
+
+def create_mcs_stat_figure(data, STATES, lat, lon, vmin=0, vmax=10, cmap='BuPu', title=None, nrows=5, ncols=5):
+    """
+    Function to plot MCS stats on maps.
+    ** Works with nontracked_total_grid and tracked_total_grid.
+    Args:
+        data (list of 2d numpy array): The files containing stats.
+        STATES (cartopy feature): US STATES file.
+        lat (1d or 2d numpy array): Latitude.
+        lon (1d or 2d numpy array): Longitude.
+        vmin (int): Minimum value for plot. Defaults to ``0``.
+        vmax (int): Maximum value for plot. Defaults to ``10``.
+        cmap (str): Colormap name option from matplotlib. Defaults to ``BuPU``.
+        title (float, int, or str): Title for plot. Defaults to ``None``.
+    """
+    fig, axes = plt.subplots(figsize=(6.,6.), nrows=nrows, ncols=ncols, sharex=True, sharey=True, projection=ccrs.PlateCarree())
+    #ax = plt.axes([0.,0.,1.,1.], projection=ccrs.PlateCarree())
+    for i, ax in enumerate(axes.flat):
+        #if title:
+        #    ax.set_title(title)
+        ax.pcolormesh(lon, lat, data[i], transform=ccrs.PlateCarree(), vmin=vmin, vmax=vmax, cmap=cmap)
+        ax.add_feature(STATES, facecolor='none', edgecolor='k', zorder=30)
+        ax.add_feature(cf.BORDERS)
+        ax.margins(x=0,y=0)
+        ax.coastlines()
+    return plt.show()

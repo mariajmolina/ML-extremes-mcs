@@ -16,7 +16,7 @@ class IDSelector:
         mcs_only (boolean): Set to ``True`` if only training with masks containing MCSs. Defaults to ``False``.
         percent_train (float): Set to percentage of IDs desired for training set. Remainer will be used for test set. 
                                Defaults to ``0.7``, which is a 70/30 split, 70% for training and 30% for testing.
-        ens_num (str): The CESM CAM ensemble number. Defaults to ``era5``.
+        ens_num (str): The CESM CAM ensemble number or observation/model data. Defaults to ``era5``.
     """
     def __init__(self, main_path, start_year, end_year, month_only=None, year_only=None, mcs_only=False, 
                  percent_train=0.7, ens_num='era5'):
@@ -190,12 +190,12 @@ class IDSelector:
                             ID_list.append(i)
                     if self.mcs_only and not self.month_only:
                         tmpmask = self.open_mask_file(year=None, dict_freq=dict_freq, indx_val=i)
-                        if np.any(tmpmask['cloudtracknumber']!=0):
+                        if np.any(tmpmask['cloudtracknumber'] > 0):
                             ID_list.append(i)
                     if self.month_only and self.mcs_only:
                         if np.isin(j.month, self.month_only):
                             tmpmask = self.open_mask_file(year=None, dict_freq=dict_freq, indx_val=i)
-                            if np.any(tmpmask['cloudtracknumber']!=0):
+                            if np.any(tmpmask['cloudtracknumber'] > 0):
                                 ID_list.append(i)
             print("ID generation complete.")
             return np.array(ID_list)
