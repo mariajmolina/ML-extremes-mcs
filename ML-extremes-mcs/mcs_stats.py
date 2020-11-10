@@ -9,22 +9,24 @@ class MCSstats:
         IDlist (int/float list): List of IDs created with ``id_selector``.
         mcs_path (str): Directory path to MCS masks.
         dim (int tuple): Spatial dimensions of MCS mask files.
+        msk_var (str): Mask variable name in presaved file. Defaults to ``cloudtracknumber``. 
+                       Options also include ``pcptracknumber`` and ``pftracknumber``.
     Todo:
         * count number of unique mcs per week??
     """
-    def __init__(self, IDlist, mcs_path, dim=(105, 161)):
+    def __init__(self, IDlist, mcs_path, dim=(105, 161), msk_var='cloudtracknumber'):
         """
         Initialize.
         """
         self.IDs = IDlist
         self.mcs_path = mcs_path
         self.dim = dim
+        self.msk_var = msk_var
 
-    def open_masks(self, mask_var='cloudtracknumber', return_coords=False, lat='lat', lon='lon'):
+    def open_masks(self, return_coords=False, lat='lat', lon='lon'):
         """
         Create binary mask for cross entropy training.
         Args:
-            mask_var (str): Mask variable name in presaved file. Defaults to ``cloudtracknumber``.
             return_coords (boolean): Whether to return lat/lon coordinates. Defaults to ``False``.
             lat (str): Latitude coordinate name in mask file. Defaults to ``lat``.
             lon (str): Longitude coordinate name in mask file. Defaults to ``lon``.
@@ -32,13 +34,13 @@ class MCSstats:
         y = np.empty((len(self.IDs), *self.dim))
         if not return_coords:
             for indx, ID in enumerate(self.IDs):
-                y[indx,:,:] = xr.open_dataset(f"{self.mcs_path}/mask_ID{ID}.nc")[mask_var].values
+                y[indx,:,:] = xr.open_dataset(f"{self.mcs_path}/mask_{self.msk_var}_ID{ID}.nc")[self.msk_var].values
             return y
         if return_coords:
             for indx, ID in enumerate(self.IDs):
-                y[indx,:,:] = xr.open_dataset(f"{self.mcs_path}/mask_ID{ID}.nc")[mask_var].values
-                lats = xr.open_dataset(f"{self.mcs_path}/mask_ID{ID}.nc")[lat].values
-                lons = xr.open_dataset(f"{self.mcs_path}/mask_ID{ID}.nc")[lon].values
+                y[indx,:,:] = xr.open_dataset(f"{self.mcs_path}/mask_{self.msk_var}_ID{ID}.nc")[self.msk_var].values
+                lats = xr.open_dataset(f"{self.mcs_path}/mask_{self.msk_var}_ID{ID}.nc")[lat].values
+                lons = xr.open_dataset(f"{self.mcs_path}/mask_{self.msk_var}_ID{ID}.nc")[lon].values
             return y, lats, lons
 
     def nontracked_total_grid(self, masks):
@@ -67,7 +69,7 @@ class MCSstats:
             masks (numpy array): Mask files loaded by ``open_masks``.
         """
         return len(np.unique(masks[masks > 0]))
-    
+
     def tracked_unique_mcs_ids(self, masks):
         """
         Return IDs of tracked MCSs.
