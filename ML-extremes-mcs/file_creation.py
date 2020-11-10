@@ -21,9 +21,11 @@ class GenerateTrainData:
         ens_num (str): The CESM CAM ensemble number (can be 002, 003, or era5). Defaults to ``era5``.
         era5_directory (str): Location of ERA5 files in RDA (ds: 633.0).
         mcs_directory (str): Location of MCS obs generated using obs.
+        msk_var (str): Variable name in mask file. Defaults to ``cloudtracknumber``. Options also include
+                       ``pcptracknumber`` and ``pftracknumber``.
     """
     def __init__(self, main_path, start_year, end_year, variable=None,
-                 ens_num='era5', era5_directory=None, mcs_directory=None):
+                 ens_num='era5', era5_directory=None, mcs_directory=None, msk_var='cloudtracknumber'):
         """
         Initialization.
         """
@@ -34,6 +36,7 @@ class GenerateTrainData:
         self.ens_num = ens_num
         self.era5_directory = era5_directory
         self.mcs_directory = mcs_directory
+        self.msk_var = msk_var
 
     def make_dict(self, start_str, end_str, frequency='3H', savepath=None):
         """
@@ -161,13 +164,12 @@ class GenerateTrainData:
                                              np.where(data[lon].values==lon1_bnd+360)[0][0]+1))
         return data
 
-    def regrid_mask(self, ds, msk_var='cloudtracknumber', method='nearest_s2d', 
+    def regrid_mask(self, ds, method='nearest_s2d', 
                     lat_coord='lat', lon_coord='lon', offset=0.125, dcoord=0.25, reuse_weights=False):
         """
         Function to regrid mcs obs mask onto coarser ERA5 grid (0.25-degree).
         Args:
             ds (xarray dataset): Mask file.
-            msk_var (str): Variable name in mask file.
             method (str): Regrid method. Defaults to ``nearest_s2d``. Options include 
                           'bilinear', 'conservative', 'nearest_s2d', 'nearest_d2s', 'patch'.
             lat_coord (str): Latitude coordinate name in file. Defaults to ``lat``.
@@ -191,7 +193,7 @@ class GenerateTrainData:
             ds = ds.assign_coords({'lat_b':(latb),
                                    'lon_b':(lonb)})
         regridder = xe.Regridder(ds, ds_out, method, reuse_weights=reuse_weights)
-        dr_out = regridder(ds[msk_var])
+        dr_out = regridder(ds[self.msk_var])
         return dr_out.fillna(0.0)
 
     def generate_files(self, pre_dict=True, dict_freq='3H', start_str=None, end_str=None, dictsave=None):
@@ -271,7 +273,7 @@ class GenerateTrainData:
                 mask = self.open_mask_file(year=indx_dt.strftime('%Y'), month=indx_dt.strftime('%m'), 
                                            day=indx_dt.strftime('%d'), hour=indx_dt.strftime('%H'))
                 tmpmask = self.regrid_mask(mask, reuse_weights=reuse_wghts)
-                tmpmask.to_netcdf(f"{self.main_directory}/dl_files/{dict_freq}/mask_ID{indx_val}.nc")
+                tmpmask.to_netcdf(f"{self.main_directory}/dl_files/{dict_freq}/mask_{self.msk_var}_ID{indx_val}.nc")
                 reuse_wghts = True
-                
+
         print("Job complete!")
