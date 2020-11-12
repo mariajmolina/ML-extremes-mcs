@@ -155,6 +155,22 @@ class DataGenerator(Sequence):
         y[indx,:,:,0] = np.where(tmp_y > 0, 1, 0)
         return y
     
+    def omit_nans(self, X, y):
+        """
+        Remove any ``nans`` from data.
+        Args:
+            X (array): Training data.
+            y (array): Labels for supervised learning.
+        Returns:
+            Data arrays with nans removed.
+        """
+        maskarray=np.full(X.shape[0], True)
+        masker=np.unique(np.argwhere(np.isnan(X))[:,0])
+        maskarray[masker]=False
+        newX=X[maskarray,:,:,:]
+        newy=y[maskarray]
+        return newX, newy
+    
     def __data_generation(self, list_IDs_temp):
         """
         Generates data containing batch_size samples. # X : (n_samples, *dim, n_channels)
@@ -188,4 +204,5 @@ class DataGenerator(Sequence):
             if self.norm:
                 for j, VAR in enumerate(self.variable):
                     X[:,:,:,j] = self.compute_stats(X[:,:,:,j], self.stat_a[:,j], self.stat_b[:,j])
+            X, y = self.omit_nans(X, y)
         return X, y
