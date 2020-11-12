@@ -23,11 +23,13 @@ class DataGenerator(Sequence):
         stats_path (str): Path to the pre-saved statistics files. Defaults to ``None``.
         norm (str): Option for normalizing or standardizing training data. Options include ``zscore`` and ``minmax``.
                     Defaults to ``None``.
+        msk_var (str): Mask variable name in presaved file. Defaults to ``cloudtracknumber``. Options also include
+                       ``pcptracknumber`` and ``pftracknumber``.
     Based on tutorial/blog: https://stanford.edu/~shervine/blog/keras-how-to-generate-data-on-the-fly
     """
     def __init__(self, list_IDs, path_dataID, variable, ens_num, h_num=None, height=None, 
                  batch_size=32, dim=(105, 161), n_channels=1, n_classes=2, shuffle=True, 
-                 stats_path=None, norm=None):
+                 stats_path=None, norm=None, msk_var='cloudtracknumber'):
         """
         Initialization.
         """
@@ -49,7 +51,8 @@ class DataGenerator(Sequence):
         if self.norm:
             self.stat_a, self.stat_b = self.compute_norm_constants()
         self.on_epoch_end()
-
+        self.msk_var = msk_var
+        
     def __len__(self):
         """
         Denotes the number of batches per epoch.
@@ -122,17 +125,29 @@ class DataGenerator(Sequence):
         if self.norm == 'minmax':
             return dl_stats.min_max_scale(data, a, b)
         
-    def create_binary_mask(self, y, indx, IDindx, mask_var='cloudtracknumber'):
+    def create_binary_mask(self, y, indx, IDindx):
         """
         Create binary mask for cross entropy training.
         Args:
             y (array): Labels to populate.
             indx (int): Enumerated value representing location in label array.
             IDindx (int): Mask file ID corresponding to training data.
-            mask_var (str): Mask variable name in presaved file. Defaults to ``cloudtracknumber``.
         """
-        y[indx,:,:,0] = xr.open_dataset(f"{self.path_dataID}/mask_ID{IDindx}.nc")[mask_var].values
+        tmp_y = xr.open_dataset(f"{self.path_dataID}/mask_{self.msk_var}_ID{IDindx}.nc")[self.msk_var].values
+        y[indx,:,:,0] = np.where(tmp_y > 0, 1, 0)
         y[indx,:,:,1] = np.ones(self.dim, dtype=int) - y[indx,:,:,0]
+        return y
+    
+    def create_singlechannel_mask(self, y, indx, IDindx):
+        """
+        Create single channel mask for training (e.g., for use with sigmoid output).
+        Args:
+            y (array): Labels to populate.
+            indx (int): Enumerated value representing location in label array.
+            IDindx (int): Mask file ID corresponding to training data.
+        """
+        tmp_y = xr.open_dataset(f"{self.path_dataID}/mask_{self.msk_var}_ID{IDindx}.nc")[self.msk_var].values
+        y[indx,:,:,0] = np.where(tmp_y > 0, 1, 0)
         return y
     
     def __data_generation(self, list_IDs_temp):
@@ -156,7 +171,7 @@ class DataGenerator(Sequence):
                     if self.ens_num == '003':
                         X[i,:,:,j] = xr.open_dataset(f"{self.path_dataID}/file003_{HNUM}_{VAR}_ID{ID}.nc")[VAR].values
                 # Store class
-                y = self.create_binary_mask(y, i, ID, mask_var='binary_tag')
+                y = self.create_binary_mask(y, i, ID)
 
         if self.ens_num == 'era5':
             for i, ID in enumerate(list_IDs_temp):

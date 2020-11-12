@@ -17,9 +17,11 @@ class IDSelector:
         percent_train (float): Set to percentage of IDs desired for training set. Remainer will be used for test set. 
                                Defaults to ``0.7``, which is a 70/30 split, 70% for training and 30% for testing.
         ens_num (str): The CESM CAM ensemble number or observation/model data. Defaults to ``era5``.
+        msk_var (str): Mask variable name in presaved file. Defaults to ``cloudtracknumber``. Options also include
+                       ``pcptracknumber`` and ``pftracknumber``.
     """
     def __init__(self, main_path, start_year, end_year, month_only=None, year_only=None, mcs_only=False, 
-                 percent_train=0.7, ens_num='era5'):
+                 percent_train=0.7, ens_num='era5', msk_var='cloudtracknumber'):
         """
         Initialization.
         """
@@ -31,6 +33,7 @@ class IDSelector:
         self.mcs_only = mcs_only
         self.percent_train = percent_train
         self.ens_num = ens_num
+        self.msk_var = msk_var
 
     def make_month(self):
         """
@@ -122,7 +125,7 @@ class IDSelector:
         if self.ens_num == '003':
             mask = xr.open_dataset(f"{self.main_directory}/mask_camPD_{year}.nc")
         if self.ens_num == 'era5':
-            mask = xr.open_dataset(f"{self.main_directory}/dl_files/{dict_freq}/mask_ID{indx_val}.nc")
+            mask = xr.open_dataset(f"{self.main_directory}/dl_files/{dict_freq}/mask_{self.msk_var}_ID{indx_val}.nc")
         return mask
 
     def generate_IDarray(self, pre_dict=True, dict_freq='3H', start_str=None, end_str=None, dictsave=None):
