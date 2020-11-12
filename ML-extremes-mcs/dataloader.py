@@ -102,6 +102,9 @@ class DataGenerator(Sequence):
     def compute_norm_constants(self):
         """
         Compute the nomalization or standardization constants.
+        Returns: 
+            a_ (numpy array): Averages or minimums for list of IDs.
+            b_ (numpy array): Standard deviations or maximums for list of IDs.
         """
         a_ = np.empty((len(self.list_IDs), self.n_channels))
         b_ = np.empty((len(self.list_IDs), self.n_channels))
@@ -117,6 +120,8 @@ class DataGenerator(Sequence):
         Compute the standardization or normalization.
         Args:
             data (array): Data for specific variable.
+            a (array): Averages or minimums for list of IDs.
+            b (array): Standard deviations or maximums for list of IDs.
         Returns:
             data (array) standardized or normalized for training.
         """

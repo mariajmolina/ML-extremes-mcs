@@ -33,8 +33,8 @@ def era5_train_stats(filepath, variable, fileIDs):
     ds = xr.open_dataset(f"{filepath}/stats_era5_{variable}.nc")
     avgs = ds['averages'][fileIDs]
     sigs = ds['sigma'][fileIDs]
-    maxs = ds['maxs'][fileIDs]
     mins = ds['mins'][fileIDs]
+    maxs = ds['maxs'][fileIDs]
     return avgs, sigs, mins, maxs
 
 def z_score(da, avgs, stds):
