@@ -25,11 +25,12 @@ class DataGenerator(Sequence):
                     Defaults to ``None``.
         msk_var (str): Mask variable name in presaved file. Defaults to ``cloudtracknumber``. Options also include
                        ``pcptracknumber`` and ``pftracknumber``.
+        label_weight (float): Use if weighting the none class. Defaults to ``None``. ``0.35`` used by DL-front.
     Based on tutorial/blog: https://stanford.edu/~shervine/blog/keras-how-to-generate-data-on-the-fly
     """
     def __init__(self, list_IDs, path_dataID, variable, ens_num, h_num=None, height=None, 
                  batch_size=32, dim=(105, 161), n_channels=1, n_classes=2, shuffle=True, 
-                 stats_path=None, norm=None, msk_var='cloudtracknumber'):
+                 stats_path=None, norm=None, msk_var='cloudtracknumber', label_weight=None):
         """
         Initialization.
         """
@@ -52,6 +53,7 @@ class DataGenerator(Sequence):
             self.stat_a, self.stat_b = self.compute_norm_constants()
         self.on_epoch_end()
         self.msk_var = msk_var
+        self.label_weight = label_weight
         
     def __len__(self):
         """
@@ -141,6 +143,8 @@ class DataGenerator(Sequence):
         tmp_y = xr.open_dataset(f"{self.path_dataID}/mask_{self.msk_var}_ID{IDindx}.nc")[self.msk_var].values
         y[indx,:,:,0] = np.where(tmp_y > 0, 1, 0)
         y[indx,:,:,1] = np.ones(self.dim, dtype=int) - y[indx,:,:,0]
+        if self.label_weight:
+            y[indx,:,:,1] = y[indx,:,:,1] * self.label_weight
         return y
     
     def create_singlechannel_mask(self, y, indx, IDindx):
