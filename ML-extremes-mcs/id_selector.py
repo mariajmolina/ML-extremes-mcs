@@ -16,12 +16,13 @@ class IDSelector:
         mcs_only (boolean): Set to ``True`` if only training with masks containing MCSs. Defaults to ``False``.
         percent_train (float): Set to percentage of IDs desired for training set. Remainer will be used for test set. 
                                Defaults to ``0.7``, which is a 70/30 split, 70% for training and 30% for testing.
+        percent_validate (float): Set to percentage of IDs from training data desired for validation. Defaults to ``None.``
         ens_num (str): The CESM CAM ensemble number or observation/model data. Defaults to ``era5``.
         msk_var (str): Mask variable name in presaved file. Defaults to ``cloudtracknumber``. Options also include
                        ``pcptracknumber`` and ``pftracknumber``.
     """
     def __init__(self, main_path, start_year, end_year, month_only=None, year_only=None, mcs_only=False, 
-                 percent_train=0.7, ens_num='era5', msk_var='cloudtracknumber'):
+                 percent_train=0.7, percent_validate=None, ens_num='era5', msk_var='cloudtracknumber'):
         """
         Initialization.
         """
@@ -32,6 +33,7 @@ class IDSelector:
         self.year_only = year_only
         self.mcs_only = mcs_only
         self.percent_train = percent_train
+        self.percent_validate = percent_validate
         self.ens_num = ens_num
         self.msk_var = msk_var
 
@@ -213,7 +215,17 @@ class IDSelector:
         """
         np.random.seed(seed)
         permIDs = np.random.permutation(allIDs)
-        trainnum = int(allIDs.shape[0]*self.percent_train)
-        trainIDs = permIDs[:trainnum]
-        testIDs = permIDs[trainnum:]
-        return trainIDs, testIDs
+        if not self.percent_validate:
+            trainnum = int(allIDs.shape[0] * self.percent_train)
+            trainIDs = permIDs[:trainnum]
+            testIDs = permIDs[trainnum:]
+            return trainIDs, testIDs
+        if self.percent_validate:
+            trainnum = int(allIDs.shape[0] * (self.percent_train - self.percent_validate))
+            print(trainnum)
+            validnum = int(allIDs.shape[0] * self.percent_validate)
+            print(validnum)
+            trainIDs = permIDs[:trainnum]
+            validIDs = permIDs[trainnum:trainnum + validnum]
+            testIDs = permIDs[trainnum + validnum:]
+            return trainIDs, validIDs, testIDs

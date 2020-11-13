@@ -19,7 +19,7 @@ class DataGenerator(Sequence):
                          Choose ``(106,81)`` for ``003``.
         n_channels (int): Number of input features (or channels). Defaults to ``1``.
         n_classes (int): Number of output features (or channels). Defaults to ``2``.
-        shuffle (boolean): Whether to shuffle for training. Defaults to ``True``.
+        shuffle (boolean): Whether to shuffle for training. Defaults to ``False`` because IDs can be shuffled in id_selector.
         stats_path (str): Path to the pre-saved statistics files. Defaults to ``None``.
         norm (str): Option for normalizing or standardizing training data. Options include ``zscore`` and ``minmax``.
                     Defaults to ``None``.
@@ -29,7 +29,7 @@ class DataGenerator(Sequence):
     Based on tutorial/blog: https://stanford.edu/~shervine/blog/keras-how-to-generate-data-on-the-fly
     """
     def __init__(self, list_IDs, path_dataID, variable, ens_num, h_num=None, height=None, 
-                 batch_size=32, dim=(105, 161), n_channels=1, n_classes=2, shuffle=True, 
+                 batch_size=32, dim=(105, 161), n_channels=1, n_classes=2, shuffle=False, 
                  stats_path=None, norm=None, msk_var='cloudtracknumber', label_weight=None):
         """
         Initialization.
