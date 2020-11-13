@@ -152,15 +152,14 @@ class DLFrontStyle:
         #keras.utils.plot_model(model, show_shapes=True, dpi=600)
         return model
     
-    def train_dl(self, model, generator):
+    def train_model(self, model, generator):
         """
-        Train the compiled DL model, save the trained model, and save the history and metric information from training to 
-        ``self.dl_filedirectory``.
-            
+        Train the compiled DLfront-style model.
         Args: 
-            model (keras.engine.sequential.Sequential): Compiled deep convolutional neural network.
+            model (keras.engine.sequential.Sequential): Compiled convolutional neural network.
             generator (DataGenerator(keras.utils.Sequence)): Keras data generator.
         """
+        # generate history file during training for later viewing
         history=model.fit(generator, epochs=self.epochs, verbose=self.verbose, 
                                       ## use_multiprocessing=True,
                                       workers=0)
