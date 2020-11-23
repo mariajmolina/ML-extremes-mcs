@@ -14,7 +14,7 @@ class MCSstats:
     Todo:
         * count number of unique mcs per week??
     """
-    def __init__(self, IDlist, mcs_path, dim=(105, 161), msk_var='cloudtracknumber'):
+    def __init__(self, mcs_path, IDlist=None, dim=(105, 161), msk_var='cloudtracknumber'):
         """
         Initialize.
         """
@@ -25,7 +25,7 @@ class MCSstats:
 
     def open_masks(self, return_coords=False, lat='lat', lon='lon'):
         """
-        Create binary mask for cross entropy training.
+        Open masks.
         Args:
             return_coords (boolean): Whether to return lat/lon coordinates. Defaults to ``False``.
             lat (str): Latitude coordinate name in mask file. Defaults to ``lat``.
@@ -42,6 +42,50 @@ class MCSstats:
                 lats = xr.open_dataset(f"{self.mcs_path}/mask_{self.msk_var}_ID{ID}.nc")[lat].values
                 lons = xr.open_dataset(f"{self.mcs_path}/mask_{self.msk_var}_ID{ID}.nc")[lon].values
             return y, lats, lons
+
+    def slice_era5trkr(self, ds, lat='lat', lon='lon'):
+        """
+        Slice the ERA5 MCS masks generated with FLEXTRKR.
+        To be used with the preprocess function of open_mfdataset.
+        Lat/lon extents taken from original IMERG data extent.
+        Args:
+            ds (xarray data array).
+        """
+        lat0_bnd = 25
+        lat1_bnd = 50
+        lon0_bnd = -110
+        lon1_bnd = -70
+        data = ds.isel(lat=slice(np.where(ds[lat].values==lat0_bnd)[0][0],
+                                 np.where(ds[lat].values==lat1_bnd)[0][0]+1),
+                       lon=slice(np.where(ds[lon].values==lon0_bnd+360)[0][0],
+                                 np.where(ds[lon].values==lon1_bnd+360)[0][0]+1))
+        return data
+    
+    def open_masks_era5trkr(self, year, return_coords=False, lat='lat', lon='lon'):
+        """
+        Open ERA5 FLEXTRKR masks for intercomparison.
+        Args:
+            year (str): Year to open masks. 
+            return_coords (boolean): Whether to return lat/lon coordinates. Defaults to ``False``.
+            lat (str): Latitude coordinate name in mask file. Defaults to ``lat``.
+            lon (str): Longitude coordinate name in mask file. Defaults to ``lon``.
+        """
+        data = xr.open_mfdataset(f'{self.mcs_path}/{str(year)}/mcstrack_{str(year)}*.nc', combine='by_coords',
+                                 preprocess=self.slice_era5trkr)
+        y = data[self.msk_var].fillna(0.0).values
+        months = data['time'].dt.month.values
+        if return_coords:
+            lats = data[lat].values
+            lons = data[lon].values
+            return y, months, lats, lons
+        if not return_coords:
+            return y, months
+
+    def slice_imergtrkr(self, mask):
+        """
+        Slice regridded IMERG masks to match ERA5 run masks.
+        """
+        return mask[self.msk_var][:,:-4,:]
 
     def nontracked_total_grid(self, masks):
         """
@@ -64,7 +108,7 @@ class MCSstats:
 
     def tracked_total(self, masks):
         """
-        Count total tracked MCSs.
+        Count total number of tracked MCSs using their unique mcs-ids (updated yearly).
         Args:
             masks (numpy array): Mask files loaded by ``open_masks``.
         """

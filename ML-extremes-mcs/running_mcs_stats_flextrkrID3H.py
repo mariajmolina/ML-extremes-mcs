@@ -17,7 +17,7 @@ from config import main_path_era, savefig_path
 ######################################################################
 ######################################################################
 
-def iterate_mcs_stats(month, years, dictpath, mcspath, ens_num='era5', msk_var='pcptracknumber'):
+def iterate_mcs_stats(month, years, dictpath, mcspath, ens_num='era5', msk_var='cloudtracknumber'):
     """
     Iterate the MCS stats.
     Args:
@@ -126,28 +126,28 @@ def main():
                            savefig=f'{savefig_path}/april_mcs_flextrkr2.png')
     print(f"Percent of month with MCS: {np.array(e)}")
     plt.bar(theyears, c); plt.title('April'); 
-    plt.savefig(f'{savefig_path}/april_mcs_bar2.png', bbox_inches='tight', dpi=200); plt.show()
+    plt.savefig(f'{savefig_path}/april_mcs_bar.png', bbox_inches='tight', dpi=200); plt.show()
     ############## MAY
     a, b, c, d, e, lat, lon = iterate_mcs_stats(5, theyears, dictpath=dictpath, mcspath=mcspath)
     create_mcs_stat_figure(b, STATES, lat, lon, vmin=0, vmax=15, cmap='BuPu', suptitle='May', titles=theyears,
                            savefig=f'{savefig_path}/may_mcs_flextrkr2.png')
     print(f"Percent of month with MCS: {np.array(e)}")
     plt.bar(theyears, c); plt.title('May'); 
-    plt.savefig(f'{savefig_path}/may_mcs_bar2.png', bbox_inches='tight', dpi=200); plt.show()
+    plt.savefig(f'{savefig_path}/may_mcs_bar.png', bbox_inches='tight', dpi=200); plt.show()
     ############## JUNE
     a, b, c, d, e, lat, lon = iterate_mcs_stats(6, theyears, dictpath=dictpath, mcspath=mcspath)
     create_mcs_stat_figure(b, STATES, lat, lon, vmin=0, vmax=15, cmap='BuPu', suptitle='June', titles=theyears,
                            savefig=f'{savefig_path}/june_mcs_flextrkr2.png')
     print(f"Percent of month with MCS: {np.array(e)}")
     plt.bar(theyears, c); plt.title('June'); 
-    plt.savefig(f'{savefig_path}/june_mcs_bar2.png', bbox_inches='tight', dpi=200); plt.show()
+    plt.savefig(f'{savefig_path}/june_mcs_bar.png', bbox_inches='tight', dpi=200); plt.show()
     ############## JULY
     a, b, c, d, e, lat, lon = iterate_mcs_stats(7, theyears, dictpath=dictpath, mcspath=mcspath)
     create_mcs_stat_figure(b, STATES, lat, lon, vmin=0, vmax=15, cmap='BuPu', suptitle='July', titles=theyears,
                            savefig=f'{savefig_path}/july_mcs_flextrkr2.png')
     print(f"Percent of month with MCS: {np.array(e)}")
     plt.bar(theyears, c); plt.title('July'); 
-    plt.savefig(f'{savefig_path}/july_mcs_bar2.png', bbox_inches='tight', dpi=200); plt.show()
+    plt.savefig(f'{savefig_path}/july_mcs_bar.png', bbox_inches='tight', dpi=200); plt.show()
 
 if __name__ == "__main__":
     main()
