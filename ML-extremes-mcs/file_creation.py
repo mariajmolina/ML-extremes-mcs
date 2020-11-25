@@ -9,23 +9,26 @@ from calendar import monthrange
 class GenerateTrainData:
     """
     Class instantiation of GenerateTrainData:
+    
     Here we will be preprocessing data for deep learning model training.
     The objective is to save files for each time index to subsequently load for training.
     IDs are assigned to each file.
+    
     Attributes:
         math_path (str): Path where files are located.
         start_year (int): Start year of analysis. For era5 use 2004.
         end_year (int): Final year of analysis. For era5 use 2016.
         variable (str): Variable for file generation. Defaults to ``None``. Options for ``era5`` to 
                         ``2d``, ``2t``, ``10u``, ``10v``, and ``sp``.
-        ens_num (str): The CESM CAM ensemble number (can be 002, 003, or era5). Defaults to ``era5``.
+        env_data (str): The environmental variable dataset. Defaults to ``era5``. Other options include ``003`` for CESM ens member.
+        mask_data (str): The mask dataset. Defaults to ``era5``. Other options include ``radar`` and ``003``.
         era5_directory (str): Location of ERA5 files in RDA (ds: 633.0).
         mcs_directory (str): Location of MCS obs generated using obs.
-        msk_var (str): Variable name in mask file. Defaults to ``cloudtracknumber``. Options also include
+        mask_var (str): Variable name in mask file. Defaults to ``cloudtracknumber``. Options also include
                        ``pcptracknumber`` and ``pftracknumber``.
     """
     def __init__(self, main_path, start_year, end_year, variable=None,
-                 ens_num='era5', era5_directory=None, mcs_directory=None, msk_var='cloudtracknumber'):
+                 env_data='era5', mask_data='era5', era5_directory=None, mcs_directory=None, mask_var='cloudtracknumber'):
         """
         Initialization.
         """
@@ -33,10 +36,11 @@ class GenerateTrainData:
         self.year_start = start_year
         self.year_end = end_year
         self.variable = variable
-        self.ens_num = ens_num
+        self.env_data = env_data
+        self.mask_data = mask_data
         self.era5_directory = era5_directory
         self.mcs_directory = mcs_directory
-        self.msk_var = msk_var
+        self.msk_var = mask_var
 
     def make_dict(self, start_str, end_str, frequency='3H', savepath=None):
         """
@@ -60,7 +64,7 @@ class GenerateTrainData:
                 dict_dates[j] = i
             return dict_dates
 
-        if self.ens_num == 'era5':
+        if self.mask_data == 'radar' or self.mask_data == 'era5':
             # file indices for dictionary -- not enumerate since some masks missing
             # this option also provides flexibility for 3H or 1H
             j = 0
@@ -113,16 +117,16 @@ class GenerateTrainData:
             month (str): Month for opening file. Defaults to ``None``.
             era_dir (str): ERA5 directory in NCAR RDA. Defaults to ``e5.oper.an.sfc``.
         """
-        if self.ens_num == '003':
+        if self.env_data == '003':
             data = xr.open_dataset(
                 f'{self.main_directory}/b.e13.B20TRC5CN.ne120_g16.003.cam.{self.inst_str}.{self.variable}.{year}010100Z-{year}123121Z.regrid.23x0.31.nc')
-        if self.ens_num == 'era5':
+        if self.env_data == 'era5':
             last_day = monthrange(int(year),int(month))[1]
             data = xr.open_mfdataset(
                 f'{self.era5_directory}/{era_dir}/{year}{month}/*_{self.variable}.*.{year}{month}0100_{year}{month}{last_day}23.nc')
         return data
     
-    def open_mask_file(self, year=None, month=None, day=None, hour=None):
+    def open_mask_file(self, year=None, month=None, day=None, hour=None, era_pctl='3pctl'):
         """
         Open the MCS mask file.
         Args:
@@ -130,11 +134,14 @@ class GenerateTrainData:
             month (str): Month. Defaults to ``None``.
             day (str): Day. Defaults to ``None``.
             hour (str): Hour. Defaults to ``None``.
+            era_pctl (str): ERA5 mask precipitation percentile threshold. Defaults to ``3pctl``.
         """
-        if self.ens_num == '003':
+        if self.mask_data == '003':
             mask = xr.open_dataset(f"{self.main_directory}/mask_camPD_{year}.nc")
-        if self.ens_num == 'era5':
+        if self.mask_data == 'radar':
             mask = xr.open_dataset(f"{self.mcs_directory}/{year}0101_{year}1231/mcstrack_{year}{month}{day}_{hour}00.nc")
+        if self.mask_data == 'era5':
+            mask = xr.open_dataset(f"{self.mcs_directory}/mcstracking_{era_pctl}/{year}/mcstrack_{year}{month}{day}_{hour}00.nc")
         return mask
 
     def slice_grid(self, data_mask, data, lat='latitude', lon='longitude'):
@@ -143,8 +150,8 @@ class GenerateTrainData:
         Args:
             data_mask (xarray dataset or dataarray): MCS object mask.
             data (xarray dataset or dataarray): The data to slice.
-            lat (str): Latitude dimension name for data. Defaults to ``latitude`` for era5.
-            lon (str): Longitude dimension name for data. Defaults to ``longitude`` for era5.
+            lat (str): Latitude dimension name for variable data. Defaults to ``latitude`` for era5.
+            lon (str): Longitude dimension name for variable data. Defaults to ``longitude`` for era5.
         Returns:
             Variable data sliced to spatial extent of the mask data.
         """
@@ -215,7 +222,7 @@ class GenerateTrainData:
                 indx_array = pickle.load(handle)
                 
         print("opening variable file...")
-        if self.ens_num == '003':
+        if self.env_data == '003':
             yr_array = self.make_years()
             for yr in yr_array:
                 mask = self.open_mask_file(yr)
@@ -228,7 +235,7 @@ class GenerateTrainData:
                     indx_val = indx_array[pd.to_datetime(t.astype('str').values)]
                     tmpdata.to_netcdf(f"{self.main_directory}/dl_files/file003_{self.inst_str}_{self.variable}_ID{indx_val}.nc")
                     
-        if self.ens_num == 'era5':
+        if self.env_data == 'era5':
             # a random creation of a mask coarsened file for slicing era5 files
             mask = self.open_mask_file(year='2005', month='01', day='01', hour='03')
             mask = self.regrid_mask(mask)
@@ -258,7 +265,7 @@ class GenerateTrainData:
             with open(f'{self.main_directory}/mcs_dict_{dict_freq}.pkl', 'rb') as handle:
                 indx_array = pickle.load(handle)
                 
-        if self.ens_num == '003':
+        if self.mask_data == '003':
             yr_array = self.make_years()
             for yr in yr_array:
                 mask = self.open_mask_file(yr)
@@ -266,8 +273,8 @@ class GenerateTrainData:
                     tmpmask = mask.sel(time=t)
                     indx_val = indx_array[pd.to_datetime(t.astype('str').values)]
                     tmpmask.to_netcdf(f"{self.main_directory}/dl_files/mask_ID{indx_val}.nc")
-                    
-        if self.ens_num == 'era5':
+
+        if self.mask_data == 'radar' or self.mask_data == 'era5':
             reuse_wghts = False
             for indx_val, indx_dt in indx_array.items():
                 mask = self.open_mask_file(year=indx_dt.strftime('%Y'), month=indx_dt.strftime('%m'), 
@@ -275,5 +282,5 @@ class GenerateTrainData:
                 tmpmask = self.regrid_mask(mask, reuse_weights=reuse_wghts)
                 tmpmask.to_netcdf(f"{self.main_directory}/dl_files/{dict_freq}/mask_{self.msk_var}_ID{indx_val}.nc")
                 reuse_wghts = True
-
+                
         print("Job complete!")

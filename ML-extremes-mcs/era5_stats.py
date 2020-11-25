@@ -3,32 +3,37 @@ import xarray as xr
 import numpy as np
 from id_selector import IDSelector
 
-def generate_era5_IDs(dict_freq):
+def generate_era5_IDs(dict_freq, mask_source='era5'):
     """
     Generate the full list of IDs.
     Args:
         dict_freq (str): Hourly frequency of files for training. Defaults to ``3H``.
+        mask_source (str): Directory location of data for analysis, named based on MCS
+                           label data source. Defaults to ``era5``. Options include
+                           ``radar`` and ``003``.
     """
     # generate list of IDs
-    test = IDSelector(main_path = '/glade/scratch/molina/cesm_mcs/cesm_era5', 
+    test = IDSelector(main_path = f'/glade/scratch/molina/cesm_mcs/{mask_source}', 
                       start_year = 2004, 
                       end_year = 2016, 
                       month_only=None, year_only=None, mcs_only=False, 
-                      percent_train=0.7, ens_num='era5')
+                      percent_train=0.7, env_data='era5', mask_data=mask_source)
     IDlist = test.generate_IDarray(pre_dict=True, dict_freq=dict_freq, start_str=None, end_str=None, dictsave=None)
     return IDlist
 
-def run_stats_era(analysis_variable, data_path, ens_num='era5', dict_freq='3H'):
+def run_stats_era(analysis_variable, data_path, env_data='era5', dict_freq='3H'):
     """
     Run basic distribution stats and save to file.
     Args:
         analysis_variable (str): ERA5 variable.
         data_path (str): Path where the ERA5 stats will be saved.
-        ens_num (str): Model data being used for training. Defaults to ``era5``.
+        env_data (str): Data (inputs) being used for training. Defaults to ``era5``.
         dict_freq (str): Hourly frequency of files for training. Defaults to ``3H``.
     """
     # generate list of IDs
     IDlist = generate_era5_IDs(dict_freq)
+    
+    ## add more variables here later as training variables change :)
     if analysis_variable == 'sp':
         VAR = 'SP'
     if analysis_variable == '10v':
@@ -39,6 +44,8 @@ def run_stats_era(analysis_variable, data_path, ens_num='era5', dict_freq='3H'):
         VAR = 'VAR_2T'
     if analysis_variable == '2d':
         VAR = 'VAR_2D'
+    ## 
+        
     # initialize a blank list to use for storing mean values 
     mean_list = []
     stds_list = []
@@ -67,5 +74,5 @@ def run_stats_era(analysis_variable, data_path, ens_num='era5', dict_freq='3H'):
                                'maxs':     (['time'], maxs_array),
                                'mins':     (['time'], mins_array),
                                'dates':    (['time'], date_array)})
-    xarray_array.to_netcdf(f'{data_path}/stats_{ens_num}_{analysis_variable}.nc')
+    xarray_array.to_netcdf(f'{data_path}/stats_{env_data}_{analysis_variable}.nc')
     print(f"File saved and completed for {analysis_variable}")

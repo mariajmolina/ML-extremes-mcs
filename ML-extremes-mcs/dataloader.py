@@ -10,7 +10,7 @@ class DataGenerator(Sequence):
         list_IDs (array): Full list of IDs for training.
         path_dataID (str): Directory path to ID files.
         variable (str): Variable(s) string as a list.
-        ens_num (str): CESM model run number (e.g., ``era5``).
+        env_data (str): The environmental variable dataset. Defaults to ``era5``. Other options include ``003`` for CESM ens member.
         h_num (str): Whether the variable is instantaneous or not. List of ``h3`` and/or ``h4``. 
                      Defaults to ``None``.
         height (): Defaults to ``None``.
@@ -23,21 +23,20 @@ class DataGenerator(Sequence):
         stats_path (str): Path to the pre-saved statistics files. Defaults to ``None``.
         norm (str): Option for normalizing or standardizing training data. Options include ``zscore`` and ``minmax``.
                     Defaults to ``None``.
-        msk_var (str): Mask variable name in presaved file. Defaults to ``cloudtracknumber``. Options also include
+        mask_var (str): Mask variable name in presaved file. Defaults to ``cloudtracknumber``. Options also include
                        ``pcptracknumber`` and ``pftracknumber``.
-        label_weight (float): Use if weighting the none class. Defaults to ``None``. ``0.35`` used by DL-front.
     Based on tutorial/blog: https://stanford.edu/~shervine/blog/keras-how-to-generate-data-on-the-fly
     """
-    def __init__(self, list_IDs, path_dataID, variable, ens_num, h_num=None, height=None, 
+    def __init__(self, list_IDs, path_dataID, variable, env_data, mask_data, h_num=None, height=None, 
                  batch_size=32, dim=(105, 161), n_channels=1, n_classes=2, shuffle=False, 
-                 stats_path=None, norm=None, msk_var='cloudtracknumber', label_weight=None):
+                 stats_path=None, norm=None, mask_var='cloudtracknumber'):
         """
         Initialization.
         """
         self.list_IDs = list_IDs
         self.path_dataID = path_dataID
         self.variable = variable
-        self.ens_num = ens_num
+        self.env_data = env_data
         self.h_num = h_num
         self.height = height
         self.batch_size = batch_size
@@ -52,8 +51,7 @@ class DataGenerator(Sequence):
         if self.norm:
             self.stat_a, self.stat_b = self.compute_norm_constants()
         self.on_epoch_end()
-        self.msk_var = msk_var
-        self.label_weight = label_weight
+        self.msk_var = mask_var
         
     def __len__(self):
         """
@@ -89,6 +87,7 @@ class DataGenerator(Sequence):
         Args:
             analysis_variable (str): The filename variable for ERA5 files.
         """
+        ## add more variables here as work continues :)
         if analysis_variable == 'sp':
             VAR = 'SP'
         if analysis_variable == '10v':
@@ -143,8 +142,6 @@ class DataGenerator(Sequence):
         tmp_y = xr.open_dataset(f"{self.path_dataID}/mask_{self.msk_var}_ID{IDindx}.nc")[self.msk_var].values
         y[indx,:,:,0] = np.where(tmp_y > 0, 1, 0)
         y[indx,:,:,1] = np.ones(self.dim, dtype=int) - y[indx,:,:,0]
-        if self.label_weight:
-            y[indx,:,:,1] = y[indx,:,:,1] * self.label_weight
         return y
     
     def create_singlechannel_mask(self, y, indx, IDindx):
@@ -184,27 +181,30 @@ class DataGenerator(Sequence):
         X = np.empty((self.batch_size, *self.dim, self.n_channels))
         y = np.empty((self.batch_size, *self.dim, self.n_classes), dtype=int)
 
-        if self.ens_num == '002' or self.ens_num == '003':
+        if self.env_data == '002' or self.env_data == '003':
             if self.norm:
                 raise Exception("Norm option not ready for ens members 002 or 003")
             for i, ID in enumerate(list_IDs_temp):
                 for j, (VAR, HNUM) in enumerate(zip(self.variable, self.h_num)):
                     # Store sample(s)
-                    if self.ens_num == '002':
+                    if self.env_data == '002':
                         # X[i,:,:,j] = xr.open_dataset(f"{self.path_dataID}/plev_{VAR}_hgt{self.height}_ID{ID}.nc")[VAR].values
                         raise Exception("Ensemble member 2 option not ready.")
-                    if self.ens_num == '003':
+                    if self.env_data == '003':
                         X[i,:,:,j] = xr.open_dataset(f"{self.path_dataID}/file003_{HNUM}_{VAR}_ID{ID}.nc")[VAR].values
                 # Store class
                 y = self.create_binary_mask(y, i, ID)
 
-        if self.ens_num == 'era5':
+        if self.env_data == 'radar' or self.env_data == 'era5':
             for i, ID in enumerate(list_IDs_temp):
                 for j, VAR in enumerate(self.variable):
                     # Store sample(s)
                     X[i,:,:,j] = xr.open_dataset(f"{self.path_dataID}/file003_{VAR}_ID{ID}.nc")[self.era5_vars(VAR)].values
                 # Store class
-                y = self.create_binary_mask(y, i, ID)
+                if self.n_classes > 1:
+                    y = self.create_binary_mask(y, i, ID)
+                if self.n_classes == 1:
+                    y = self.create_singlechannel_mask(y, i, ID)
             if self.norm:
                 for j, VAR in enumerate(self.variable):
                     X[:,:,:,j] = self.compute_stats(X[:,:,:,j], self.stat_a[:,j], self.stat_b[:,j])

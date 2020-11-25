@@ -5,8 +5,12 @@ import calendar
 import pickle
 
 class IDSelector:
-    """Class instantiation of IDSelector:
+    """
+    Class instantiation of IDSelector:
+    
     Here we will be generating the list of IDs for deep learning model training.
+    Note: ID generation based solely on MCS masks.
+    
     Attributes:
         math_path (str): Path where mask files are located.
         start_year (int): Start year of analysis.
@@ -17,12 +21,12 @@ class IDSelector:
         percent_train (float): Set to percentage of IDs desired for training set. Remainer will be used for test set. 
                                Defaults to ``0.7``, which is a 70/30 split, 70% for training and 30% for testing.
         percent_validate (float): Set to percentage of IDs from training data desired for validation. Defaults to ``None.``
-        ens_num (str): The CESM CAM ensemble number or observation/model data. Defaults to ``era5``.
-        msk_var (str): Mask variable name in presaved file. Defaults to ``cloudtracknumber``. Options also include
+        mask_data (str): The mask dataset. Defaults to ``era5``. Other options include ``radar`` and ``003``.
+        mask_var (str): Mask variable name in presaved file. Defaults to ``cloudtracknumber``. Options also include
                        ``pcptracknumber`` and ``pftracknumber``.
     """
     def __init__(self, main_path, start_year, end_year, month_only=None, year_only=None, mcs_only=False, 
-                 percent_train=0.7, percent_validate=None, ens_num='era5', msk_var='cloudtracknumber'):
+                 percent_train=0.7, percent_validate=None, mask_data='era5', mask_var='cloudtracknumber'):
         """
         Initialization.
         """
@@ -34,8 +38,8 @@ class IDSelector:
         self.mcs_only = mcs_only
         self.percent_train = percent_train
         self.percent_validate = percent_validate
-        self.ens_num = ens_num
-        self.msk_var = msk_var
+        self.mask_data = mask_data
+        self.msk_var = mask_var
 
     def make_month(self):
         """
@@ -46,6 +50,7 @@ class IDSelector:
     def make_dict(self, start_str, end_str, frequency='3H', savepath=None):
         """
         Create dictionary of the indices using study time range.
+        Based on mask file availability.
         These indices must be fixed values for the study time range.
         Args:
             start_str and end_str (str): Start and end times for date range.
@@ -60,12 +65,12 @@ class IDSelector:
         alldates = alldates[~((alldates.month == 2) & (alldates.day == 29))]
         dict_dates = {}
         
-        if self.ens_num == '003' or self.ens_num == '002':
+        if self.mask_data == '003' or self.mask_data == '002':
             for i, j in enumerate(alldates):
                 dict_dates[j] = i
             return dict_dates
         
-        if self.ens_num == 'era5':
+        if self.mask_data == 'radar' or self.mask_data == 'era5':
             # file indices for dictionary -- not enumerate since some masks missing
             # this option also provides flexibility for 3H or 1H
             j = 0
@@ -124,15 +129,16 @@ class IDSelector:
             dict_freq (str): Hourly frequency for training (e.g., ``3H``). Defaults to ``None``.
             indx_val (str): Defaults to ``None``.
         """
-        if self.ens_num == '003':
+        if self.mask_data == '003':
             mask = xr.open_dataset(f"{self.main_directory}/mask_camPD_{year}.nc")
-        if self.ens_num == 'era5':
+        if self.mask_data == 'radar' or self.mask_data == 'era5':
             mask = xr.open_dataset(f"{self.main_directory}/dl_files/{dict_freq}/mask_{self.msk_var}_ID{indx_val}.nc")
         return mask
 
     def generate_IDarray(self, pre_dict=True, dict_freq='3H', start_str=None, end_str=None, dictsave=None):
         """
         Generate an array of the respective IDs based on predefined choices.
+        Note: Function based on MCS data only.
         Args:
             pre_dict (boolean): If ``True``, open pre-saved dictionary file of indices. Defaults to ``True``.
             dict_freq (str): Files of specific hourly time spacing. Defaults to ``3H`` for 3-hourly.
@@ -141,7 +147,7 @@ class IDSelector:
                 For era5 use: start_str='2004-01-01 00:00:00', end_str='2016-12-31 23:00:00'
             dictsave (str): Path to save dictionary containing indices. Default to ``None``.
         """
-        print("starting ID generation...")
+        # print("starting ID generation...")
         if not self.year_only:
             yr_array = self.make_years()
         if self.year_only:
@@ -156,11 +162,11 @@ class IDSelector:
         # empty list for id creation
         ID_list = []
         
-        if self.ens_num == '002':
+        if self.mask_data == '002':
             print('Training options not yet available for member 002')
             return
         
-        if self.ens_num == '003':
+        if self.mask_data == '003':
             for yr in yr_array:
                 mask = self.open_mask_file(year=yr)
                 for t in mask.time:
@@ -185,7 +191,7 @@ class IDSelector:
             print("ID generation complete.")
             return np.array(ID_list)
                                     
-        if self.ens_num == 'era5':
+        if self.mask_data == 'radar' or self.mask_data == 'era5':
             for i, j in indx_array.items():
                 if np.isin(j.year, yr_array):
                     if not self.month_only and not self.mcs_only:
@@ -202,7 +208,7 @@ class IDSelector:
                             tmpmask = self.open_mask_file(year=None, dict_freq=dict_freq, indx_val=i)
                             if np.any(tmpmask['cloudtracknumber'] > 0):
                                 ID_list.append(i)
-            print("ID generation complete.")
+            # print("ID generation complete.")
             return np.array(ID_list)
 
     def generate_traintest_split(self, allIDs, seed=0):
@@ -222,9 +228,7 @@ class IDSelector:
             return trainIDs, testIDs
         if self.percent_validate:
             trainnum = int(allIDs.shape[0] * (self.percent_train - self.percent_validate))
-            print(trainnum)
             validnum = int(allIDs.shape[0] * self.percent_validate)
-            print(validnum)
             trainIDs = permIDs[:trainnum]
             validIDs = permIDs[trainnum:trainnum + validnum]
             testIDs = permIDs[trainnum + validnum:]
