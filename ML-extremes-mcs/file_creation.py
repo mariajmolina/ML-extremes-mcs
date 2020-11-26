@@ -28,7 +28,8 @@ class GenerateTrainData:
                        ``pcptracknumber`` and ``pftracknumber``.
     """
     def __init__(self, main_path, start_year, end_year, variable=None,
-                 env_data='era5', mask_data='era5', era5_directory=None, mcs_directory=None, mask_var='cloudtracknumber'):
+                 env_data='era5', mask_data='era5', era5_directory=None, 
+                 mcs_directory=None, mask_var='cloudtracknumber'):
         """
         Initialization.
         """
@@ -36,6 +37,10 @@ class GenerateTrainData:
         self.year_start = start_year
         self.year_end = end_year
         self.variable = variable
+        if self.variable == 'w':
+            self.era_dir='e5.oper.an.pl'
+        if self.variable == '2d' or self.variable == '2t' or self.variable == 'sp' or self.variable == '10v' or self.variable == '10u':
+            self.era_dir='e5.oper.an.sfc'
         self.env_data = env_data
         self.mask_data = mask_data
         self.era5_directory = era5_directory
@@ -50,7 +55,8 @@ class GenerateTrainData:
             start_str and end_str (str): Start and end times for date range.
                 For 002 use: start_str=f'04-01-1991', end_str=f'07-31-2005 23:00:00'
                 For 003 use: start_str=f'01-01-2000 03:00:00', end_str=f'01-01-2006 00:00:00'
-                For era5 use: start_str='2004-01-01 00:00:00', end_str='2016-12-31 23:00:00'
+                For radar use: start_str='2004-01-01 00:00:00', end_str='2016-12-31 23:00:00'
+                For era5 use: start_str='2004-01-01 00:00:00', end_str='2019-12-31 23:00:00'
             frequency (str): Spacing for time intervals. E.g., ``3H``.
             savepath (str): Path to save dictionary containing indices. Defaults to ``None``.
         """
@@ -59,7 +65,7 @@ class GenerateTrainData:
         alldates = alldates[~((alldates.month == 2) & (alldates.day == 29))]
         dict_dates = {}
         
-        if self.ens_num == '003' or self.ens_num == '002':
+        if self.mask_data == '003' or self.mask_data == '002':
             for i, j in enumerate(alldates):
                 dict_dates[j] = i
             return dict_dates
@@ -109,21 +115,25 @@ class GenerateTrainData:
         if last_day != 29:
             return last_day
 
-    def open_variable_file(self, year=None, month=None, era_dir='e5.oper.an.sfc'):
+    def open_variable_file(self, year=None, month=None, day=None):
         """
         Returns opened and sliced spatial region of data for respective year.
         Args:
             year (str): Year for opening file. Defaults to ``None``.
             month (str): Month for opening file. Defaults to ``None``.
-            era_dir (str): ERA5 directory in NCAR RDA. Defaults to ``e5.oper.an.sfc``.
+            day (str): Day for opening file. Defaults to ``None``.
         """
         if self.env_data == '003':
             data = xr.open_dataset(
                 f'{self.main_directory}/b.e13.B20TRC5CN.ne120_g16.003.cam.{self.inst_str}.{self.variable}.{year}010100Z-{year}123121Z.regrid.23x0.31.nc')
         if self.env_data == 'era5':
-            last_day = monthrange(int(year),int(month))[1]
-            data = xr.open_mfdataset(
-                f'{self.era5_directory}/{era_dir}/{year}{month}/*_{self.variable}.*.{year}{month}0100_{year}{month}{last_day}23.nc')
+            if self.era_dir == 'e5.oper.an.sfc':
+                last_day = monthrange(int(year),int(month))[1]
+                data = xr.open_mfdataset(
+                    f'{self.era5_directory}/{self.era_dir}/{year}{month}/*_{self.variable}.*.{year}{month}0100_{year}{month}{last_day}23.nc')
+            if self.era_dir == 'e5.oper.an.pl':
+                data = xr.open_mfdataset(
+                    f'{self.era5_directory}/{self.era_dir}/{year}{month}/*_{self.variable}.*.{year}{month}{day}00_{year}{month}{day}23.nc')
         return data
     
     def open_mask_file(self, year=None, month=None, day=None, hour=None, era_pctl='3pctl'):
@@ -155,20 +165,26 @@ class GenerateTrainData:
         Returns:
             Variable data sliced to spatial extent of the mask data.
         """
-        if self.ens_num == '003':
+        if self.env_data == '003':
             data = data.isel(lat=slice(np.where(data[lat].values==data_mask['lat'][0].values)[0][0],
                                        np.where(data[lat].values==data_mask['lat'][-1].values)[0][0]+1),
                              lon=slice(np.where(data[lon].values==data_mask['lon'][0].values)[0][0],
                                        np.where(data[lon].values==data_mask['lon'][-1].values)[0][0]+1))
-        if self.ens_num == 'era5':
+        if self.env_data == 'era5':
             lat0_bnd = int(np.around(data_mask['lat'].min(skipna=True).values))
             lat1_bnd = int(np.around(data_mask['lat'].max(skipna=True).values))
             lon0_bnd = int(np.around(data_mask['lon'].min(skipna=True).values))
             lon1_bnd = int(np.around(data_mask['lon'].max(skipna=True).values))
-            data = data.isel(latitude=slice(np.where(data[lat].values==lat1_bnd)[0][0],
-                                            np.where(data[lat].values==lat0_bnd)[0][0]+1),
-                             longitude=slice(np.where(data[lon].values==lon0_bnd+360)[0][0],
-                                             np.where(data[lon].values==lon1_bnd+360)[0][0]+1))
+            if self.mask_data == 'radar':
+                data = data.isel(latitude=slice(np.where(data[lat].values==lat1_bnd)[0][0],
+                                                np.where(data[lat].values==lat0_bnd)[0][0]+1),
+                                 longitude=slice(np.where(data[lon].values==lon0_bnd+360)[0][0],
+                                                 np.where(data[lon].values==lon1_bnd+360)[0][0]+1))
+            if self.mask_data == 'era5':
+                data = data.isel(latitude=slice(np.where(data[lat].values==lat1_bnd)[0][0],
+                                                np.where(data[lat].values==lat0_bnd)[0][0]+1),
+                                 longitude=slice(np.where(data[lon].values==lon0_bnd)[0][0],
+                                                 np.where(data[lon].values==lon1_bnd)[0][0]+1))
         return data
 
     def regrid_mask(self, ds, method='nearest_s2d', 
@@ -203,10 +219,11 @@ class GenerateTrainData:
         dr_out = regridder(ds[self.msk_var])
         return dr_out.fillna(0.0)
 
-    def generate_files(self, pre_dict=True, dict_freq='3H', start_str=None, end_str=None, dictsave=None):
+    def generate_files(self, p_height=None, pre_dict=True, dict_freq='3H', start_str=None, end_str=None, dictsave=None):
         """
         Save the files for each time period and variable with respective ID.
         Args:
+            p_height (int): Pressure height to grab variable. Defaults to ``None``.
             pre_dict (boolean): If ``True``, open pre-saved dictionary file of indices. Defaults to ``True``.
             dict_freq (str): Files of specific hourly time spacing. Defaults to ``3H`` for 3-hourly.
             start_str and end_str (str): Start and end times for date range. Default to ``None``.
@@ -237,13 +254,23 @@ class GenerateTrainData:
                     
         if self.env_data == 'era5':
             # a random creation of a mask coarsened file for slicing era5 files
-            mask = self.open_mask_file(year='2005', month='01', day='01', hour='03')
-            mask = self.regrid_mask(mask)
+            mask = self.open_mask_file(year='2005', month='03', day='01', hour='03')
+            if self.mask_data == 'radar':
+                mask = self.regrid_mask(mask)
             for indx_val, indx_dt in indx_array.items():
-                data = self.open_variable_file(year=indx_dt.strftime('%Y'), month=indx_dt.strftime('%m'), era_dir='e5.oper.an.sfc')
+                if self.era_dir == 'e5.oper.an.sfc':
+                    data = self.open_variable_file(year=indx_dt.strftime('%Y'), month=indx_dt.strftime('%m'))
+                if self.era_dir == 'e5.oper.an.pl':
+                    data = self.open_variable_file(year=indx_dt.strftime('%Y'), month=indx_dt.strftime('%m'), day=indx_dt.strftime('%d'))
                 tmpdata = data.sel(time=indx_dt)
+                if self.era_dir == 'e5.oper.an.pl':
+                    assert p_height
+                    tmpdata = tmpdata.sel(level=p_height)
                 tmpdata = self.slice_grid(mask, tmpdata, lat='latitude', lon='longitude')
-                tmpdata.to_netcdf(f"{self.main_directory}/dl_files/{dict_freq}/file_{self.variable}_ID{indx_val}.nc")
+                if self.era_dir == 'e5.oper.an.sfc':
+                    tmpdata.to_netcdf(f"{self.main_directory}/dl_files/{dict_freq}/file_{self.variable}_ID{indx_val}.nc")
+                if self.era_dir == 'e5.oper.an.pl':
+                    tmpdata.to_netcdf(f"{self.main_directory}/dl_files/{dict_freq}/file_{self.variable}{str(p_height)}_ID{indx_val}.nc")
     
         print("Job complete!")
 
@@ -279,7 +306,10 @@ class GenerateTrainData:
             for indx_val, indx_dt in indx_array.items():
                 mask = self.open_mask_file(year=indx_dt.strftime('%Y'), month=indx_dt.strftime('%m'), 
                                            day=indx_dt.strftime('%d'), hour=indx_dt.strftime('%H'))
-                tmpmask = self.regrid_mask(mask, reuse_weights=reuse_wghts)
+                if self.mask_data == 'radar':
+                    tmpmask = self.regrid_mask(mask, reuse_weights=reuse_wghts)
+                if self.mask_data == 'era5':
+                    tmpmask = mask.isel(time=0)[self.msk_var].fillna(0.0)
                 tmpmask.to_netcdf(f"{self.main_directory}/dl_files/{dict_freq}/mask_{self.msk_var}_ID{indx_val}.nc")
                 reuse_wghts = True
                 
