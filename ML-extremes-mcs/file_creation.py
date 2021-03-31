@@ -213,7 +213,7 @@ class GenerateTrainData:
         """
         Open presaved dictionary containing file respective IDs.
         Args:
-            pre_dict (boolean): If ``True``, open pre-saved dictionary file of indices. Defaults to ``True``.
+            dict_freq (boolean): If ``True``, open pre-saved dictionary file of indices. Defaults to ``True``.
         """
         with open(f'{self.main_directory}/mcs_dict_{dict_freq}.pkl', 'rb') as handle:
             indx_array = pickle.load(handle)

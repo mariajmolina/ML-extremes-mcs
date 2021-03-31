@@ -39,14 +39,15 @@ class IDSelector:
         self.percent_validate = percent_validate
         self.msk_var = mask_var
         
-    def open_dict(self, dict_freq='3H'):
+    def open_dictionary(self, dict_freq='3H'):
         """
-        Open dictionary. 
+        Open presaved dictionary containing file respective IDs.
         Args:
-            dict_freq (str): Files of specific hourly time spacing. Defaults to ``3H`` for 3-hourly.
+            dict_freq (boolean): If ``True``, open pre-saved dictionary file of indices. Defaults to ``True``.
         """
         with open(f'{self.main_directory}/mcs_dict_{dict_freq}.pkl', 'rb') as handle:
-            return pickle.load(handle)
+            indx_array = pickle.load(handle)
+        return indx_array
 
     def make_years(self):
         """
@@ -78,8 +79,7 @@ class IDSelector:
             yr_array = self.year_only
 
         # open indx dictionary
-        with open(f'{self.main_directory}/mcs_dict_{dict_freq}.pkl', 'rb') as handle:
-            indx_array = pickle.load(handle)
+        indx_array = self.open_dictionary(dict_freq=dict_freq)
         
         # empty list for id creation
         ID_list = []
