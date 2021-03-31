@@ -10,7 +10,6 @@ class DataGenerator(Sequence):
         list_IDs (array): Full list of IDs for training.
         path_dataID (str): Directory path to ID files.
         variable (str): Variable(s) string as a list.
-        env_data (str): The environmental variable dataset. Defaults to ``era5``. Other options include ``003`` for CESM ens member.
         h_num (str): Whether the variable is instantaneous or not. List of ``h3`` and/or ``h4``. 
                      Defaults to ``None``.
         height (): Defaults to ``None``.
@@ -27,7 +26,7 @@ class DataGenerator(Sequence):
                        ``pcptracknumber`` and ``pftracknumber``.
     Based on tutorial/blog: https://stanford.edu/~shervine/blog/keras-how-to-generate-data-on-the-fly
     """
-    def __init__(self, list_IDs, path_dataID, variable, env_data, mask_data, h_num=None, height=None, 
+    def __init__(self, list_IDs, path_dataID, variable, mask_data, h_num=None, height=None, 
                  batch_size=32, dim=(105, 161), n_channels=1, n_classes=2, shuffle=False, 
                  stats_path=None, norm=None, mask_var='cloudtracknumber'):
         """
@@ -36,7 +35,6 @@ class DataGenerator(Sequence):
         self.list_IDs = list_IDs
         self.path_dataID = path_dataID
         self.variable = variable
-        self.env_data = env_data
         self.h_num = h_num
         self.height = height
         self.batch_size = batch_size
@@ -67,8 +65,10 @@ class DataGenerator(Sequence):
         """
         # Generate indexes of the batch
         indexes = self.indexes[index*self.batch_size:(index+1)*self.batch_size]
+        
         # Find list of IDs
         list_IDs_temp = [self.list_IDs[k] for k in indexes]
+        
         # Generate data
         X, y = self.__data_generation(list_IDs_temp)
         return X, y
@@ -98,6 +98,19 @@ class DataGenerator(Sequence):
             VAR = 'VAR_2T'
         if analysis_variable == '2d':
             VAR = 'VAR_2D'
+        if analysis_variable == 'cape':
+            VAR = 'CAPE'
+        if analysis_variable == 'w700':
+            VAR = 'W'
+        if analysis_variable == 'u850' or analysis_variable == 'u500':
+            VAR = 'U'
+        if analysis_variable == 'v850' or analysis_variable == 'v500':
+            VAR = 'V'
+        if analysis_variable == 'z500';
+            VAR = 'Z'
+        if analysis_variable == 'q1000' or analysis_variable == 'q850':
+            VAR = 'Q'
+        assert (VAR), "Please enter an available variable."
         return VAR
     
     def compute_norm_constants(self):
@@ -109,11 +122,15 @@ class DataGenerator(Sequence):
         """
         a_ = np.empty((len(self.list_IDs), self.n_channels))
         b_ = np.empty((len(self.list_IDs), self.n_channels))
+        
         for j, VAR in enumerate(self.variable):
+            
             if self.norm == 'zscore':
-                a_[:, j], b_[:, j], _, _ = dl_stats.era5_train_stats(self.stats_path, VAR, self.list_IDs)
+                a_[:, j], b_[:, j], _, _ = dl_stats.extract_train_stats(self.stats_path, VAR, self.list_IDs)
+            
             if self.norm == 'minmax':
-                _, _, a_[:, j], b_[:, j] = dl_stats.era5_train_stats(self.stats_path, VAR, self.list_IDs)
+                _, _, a_[:, j], b_[:, j] = dl_stats.extract_train_stats(self.stats_path, VAR, self.list_IDs)
+        
         return a_, b_
     
     def compute_stats(self, data, a, b):
@@ -128,6 +145,7 @@ class DataGenerator(Sequence):
         """
         if self.norm == 'zscore':
             return dl_stats.z_score(data, a, b)
+        
         if self.norm == 'minmax':
             return dl_stats.min_max_scale(data, a, b)
         
@@ -181,32 +199,22 @@ class DataGenerator(Sequence):
         X = np.empty((self.batch_size, *self.dim, self.n_channels))
         y = np.empty((self.batch_size, *self.dim, self.n_classes), dtype=int)
 
-        if self.env_data == '002' or self.env_data == '003':
-            if self.norm:
-                raise Exception("Norm option not ready for ens members 002 or 003")
-            for i, ID in enumerate(list_IDs_temp):
-                for j, (VAR, HNUM) in enumerate(zip(self.variable, self.h_num)):
-                    # Store sample(s)
-                    if self.env_data == '002':
-                        # X[i,:,:,j] = xr.open_dataset(f"{self.path_dataID}/plev_{VAR}_hgt{self.height}_ID{ID}.nc")[VAR].values
-                        raise Exception("Ensemble member 2 option not ready.")
-                    if self.env_data == '003':
-                        X[i,:,:,j] = xr.open_dataset(f"{self.path_dataID}/file003_{HNUM}_{VAR}_ID{ID}.nc")[VAR].values
-                # Store class
+        for i, ID in enumerate(list_IDs_temp):
+            
+            for j, VAR in enumerate(self.variable):
+                
+                # Store sample(s)
+                X[i,:,:,j] = xr.open_dataset(f"{self.path_dataID}/file003_{VAR}_ID{ID}.nc")[self.era5_vars(VAR)].values
+                
+            # Store class
+            if self.n_classes > 1:
                 y = self.create_binary_mask(y, i, ID)
-
-        if self.env_data == 'radar' or self.env_data == 'era5':
-            for i, ID in enumerate(list_IDs_temp):
-                for j, VAR in enumerate(self.variable):
-                    # Store sample(s)
-                    X[i,:,:,j] = xr.open_dataset(f"{self.path_dataID}/file003_{VAR}_ID{ID}.nc")[self.era5_vars(VAR)].values
-                # Store class
-                if self.n_classes > 1:
-                    y = self.create_binary_mask(y, i, ID)
-                if self.n_classes == 1:
-                    y = self.create_singlechannel_mask(y, i, ID)
-            if self.norm:
-                for j, VAR in enumerate(self.variable):
-                    X[:,:,:,j] = self.compute_stats(X[:,:,:,j], self.stat_a[:,j], self.stat_b[:,j])
-            X, y = self.omit_nans(X, y)
+            if self.n_classes == 1:
+                y = self.create_singlechannel_mask(y, i, ID)
+                
+        if self.norm:
+            for j, VAR in enumerate(self.variable):
+                X[:,:,:,j] = self.compute_stats(X[:,:,:,j], self.stat_a[:,j], self.stat_b[:,j])
+                
+        X, y = self.omit_nans(X, y)
         return X, y
