@@ -291,14 +291,13 @@ class GenerateTrainData:
         print("Job complete!")
         return
 
-    def generate_train_stats(self, filename, variable, dict_freq='3H',
+    def generate_train_stats(self, variable, dict_freq='3H',
                              lat='latitude', lon='longitude', author=None):
         """
         Generate statistics for normalizing the training data prior to training ML.
         
         Args:
-            filename (str): Variable used to name training file. 
-            variable (str): Variable name within the file.
+            variable (str): Variable used to name training file.
             dict_freq (str): Files of specific hourly time spacing. Defaults to ``3H`` for 3-hourly.
             lat (str): Latitude coordinate name. Defaults to ``latitude``.
             lon (str): Longitude coordinate name. Defaults to ``longitude``.
@@ -306,15 +305,45 @@ class GenerateTrainData:
         """
         indx_array = self.open_dictionary(dict_freq=dict_freq)
         
+        ## add more variables here later as training variables change :)
+        if variable == 'sp':
+            VAR = 'SP'
+        if variable == '10v':
+            VAR = 'VAR_10V'
+        if variable == '10u':
+            VAR = 'VAR_10U'
+        if variable == '2t':
+            VAR = 'VAR_2T'
+        if variable == '2d':
+            VAR = 'VAR_2D'
+        if variable == 'cape':
+            VAR = 'CAPE'
+        if variable == 'w700':
+            VAR = 'W'
+        if variable == 'u850' or variable == 'u500':
+            VAR = 'U'
+        if variable == 'v850' or variable == 'v500':
+            VAR = 'V'
+        if variable == 'z500':
+            VAR = 'Z'
+        if variable == 'q1000' or variable == 'q850':
+            VAR = 'Q'
+        
+        assert (VAR), "Please enter an available variable."
+        
         # initialize a blank list to use for storing mean values 
         mean_list = []
         stds_list = []
         maxs_list = []
         mins_list = []
+        date_list = []
         
         for indx_val in indx_array.keys():
+            
             # open and extract variable
-            tmp = xr.open_dataset(f"{self.main_directory}/dl_files/{dict_freq}/file_{filename}_ID{indx_val}.nc")[variable]
+            tmp = xr.open_dataset(f"{self.main_directory}/dl_files/{dict_freq}/file_{variable}_ID{indx_val}.nc")
+            date_list.append(tmp['utc_date'].values)
+            tmp = tmp[VAR]
             
             # compute stats for each file
             mean_list.append(tmp.mean(dim=[lat,lon], skipna=True).values)
@@ -326,14 +355,18 @@ class GenerateTrainData:
         stds_array = np.array([stds_list]).squeeze()
         maxs_array = np.array([maxs_list]).squeeze()
         mins_array = np.array([mins_list]).squeeze()
+        date_array = np.array([date_list]).squeeze()
         
         # create xarray dataset
         xarray_array = xr.Dataset({'averages': (['id'], mean_array),
                                    'sigma':    (['id'], stds_array),
                                    'maxs':     (['id'], maxs_array),
-                                   'mins':     (['id'], mins_array)},
+                                   'mins':     (['id'], mins_array),
+                                   'dates':    (['id'], date_array)},
                                  coords = {'id': (['id'], np.array(list(indx_array.keys())))},
                                  attrs = {'File Author' : author})
+        
         # save file
-        xarray_array.to_netcdf(f'{self.main_directory}/dl_files/{dict_freq}/stats_era5_{filename}.nc')
+        xarray_array.to_netcdf(f'{self.main_directory}/dl_files/{dict_freq}/stats_era5_{variable}.nc')
+        print(f"File saved and completed for {variable}")
         return
