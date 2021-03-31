@@ -16,7 +16,7 @@ class GenerateTrainData:
     IDs are assigned to each file.
     
     Attributes:
-        math_path (str): Path where files are located.
+        main_path (str): Path where files are located.
         start_year (int): Start year of analysis. For era5 use 2004.
         end_year (int): Final year of analysis. For era5 use 2016.
         variable (str): Variable for file generation. Defaults to ``None``. Options for ``era5`` to 
@@ -50,6 +50,7 @@ class GenerateTrainData:
         """
         Create dictionary of the indices using study time range.
         These indices must be fixed values for the study time range.
+        
         Args:
             start_str and end_str (str): Start and end times for date range.
                 For era5 use: start_str='2004-01-01 00:00:00', end_str='2019-12-31 23:00:00'
@@ -100,6 +101,7 @@ class GenerateTrainData:
     def cesm_last_day(self, year, month):
         """
         Grab last day of the month without leap year option.
+        
         Args:
             year (str): Year for opening file.
             month (str): Month for opening file.
@@ -115,6 +117,7 @@ class GenerateTrainData:
     def open_variable_file(self, year=None, month=None, day=None):
         """
         Returns opened and sliced spatial region of data for respective year.
+        
         Args:
             year (str): Year for opening file. Defaults to ``None``.
             month (str): Month for opening file. Defaults to ``None``.
@@ -134,6 +137,7 @@ class GenerateTrainData:
     def open_mask_file(self, year=None, month=None, day=None, hour=None, era_pctl='3pctl'):
         """
         Open the MCS mask file.
+        
         Args:
             year (str): Year. Defaults to ``None``.
             month (str): Month. Defaults to ``None``.
@@ -146,11 +150,13 @@ class GenerateTrainData:
     def slice_grid(self, data_mask, data, lat='latitude', lon='longitude'):
         """
         Slice the variable data on pressure level grid to match the mask data.
+        
         Args:
             data_mask (xarray dataset or dataarray): MCS object mask.
             data (xarray dataset or dataarray): The data to slice.
             lat (str): Latitude dimension name for variable data. Defaults to ``latitude`` for era5.
             lon (str): Longitude dimension name for variable data. Defaults to ``longitude`` for era5.
+            
         Returns:
             Variable data sliced to spatial extent of the mask data.
         """
@@ -169,6 +175,7 @@ class GenerateTrainData:
                     offset=0.125, dcoord=0.25, reuse_weights=False):
         """
         Function to regrid mcs obs mask onto coarser ERA5 grid (0.25-degree).
+        
         Args:
             ds (xarray dataset): Mask file.
             method (str): Regrid method. Defaults to ``nearest_s2d``. Options include 
@@ -212,25 +219,17 @@ class GenerateTrainData:
             indx_array = pickle.load(handle)
         return indx_array
 
-    def generate_files(self, p_height=None, pre_dict=True, dict_freq='3H', start_str=None, end_str=None, dictsave=None, file_indx=None):
+    def generate_files(self, p_height=None, dict_freq='3H', file_indx=None):
         """
         Save the files for each time period and variable with respective ID.
+        
         Args:
             p_height (int): Pressure height to grab variable. Defaults to ``None``.
-            pre_dict (boolean): If ``True``, open pre-saved dictionary file of indices. Defaults to ``True``.
             dict_freq (str): Files of specific hourly time spacing. Defaults to ``3H`` for 3-hourly.
-            start_str and end_str (str): Start and end times for date range. Defaults to ``None``.
-                For era5 use: start_str='2004-01-01 00:00:00', end_str='2016-12-31 23:00:00'
-            dictsave (str): Path to save dictionary containing indices. Defaults to ``None``.
             file_indx (int): File integer to restart job from. Defaults to ``None``.
         """
         print("starting file generation...")
-        if not pre_dict:
-            indx_array = self.make_dict(start_str=start_str, end_str=end_str, frequency=dict_freq, savepath=dictsave)
-            
-        if pre_dict:
-            with open(f'{self.main_directory}/mcs_dict_{dict_freq}.pkl', 'rb') as handle:
-                indx_array = pickle.load(handle)
+        indx_array = self.open_dictionary(dict_freq=dict_freq)
                 
         # if restarting job of file creation
         if file_indx:
@@ -245,7 +244,9 @@ class GenerateTrainData:
                 data = self.open_variable_file(year=indx_dt.strftime('%Y'), month=indx_dt.strftime('%m'))
                 
             if self.era_dir == 'e5.oper.an.pl':
-                data = self.open_variable_file(year=indx_dt.strftime('%Y'), month=indx_dt.strftime('%m'), day=indx_dt.strftime('%d'))
+                data = self.open_variable_file(year=indx_dt.strftime('%Y'), 
+                                               month=indx_dt.strftime('%m'), 
+                                               day=indx_dt.strftime('%d'))
                 
             tmpdata = self.slice_grid(mask, data, lat='latitude', lon='longitude')
             data = None
@@ -261,28 +262,19 @@ class GenerateTrainData:
                 
             if self.era_dir == 'e5.oper.an.pl':
                 tmpdata.to_netcdf(f"{self.main_directory}/dl_files/{dict_freq}/file_{self.variable}{str(p_height)}_ID{indx_val}.nc")
-    
         print("Job complete!")
         return
 
-    def generate_masks(self, pre_dict=True, dict_freq='3H', start_str=None, end_str=None, dictsave=None, file_indx=None):
+    def generate_masks(self, dict_freq='3H', file_indx=None):
         """
         Save the files for each time period and mask with respective ID.
+        
         Args:
-            pre_dict (boolean): If ``True``, open pre-saved dictionary file of indices. Defaults to ``True``.
             dict_freq (str): Files of specific hourly time spacing. Defaults to ``3H`` for 3-hourly.
-            start_str and end_str (str): Start and end times for date range. Default to ``None``.
-                For era5 use: start_str='2004-01-01 00:00:00', end_str='2016-12-31 23:00:00'
-            dictsave (str): Path to save dictionary containing indices. Default to ``None``.
             file_indx (int): File integer to restart job from. Defaults to ``None``.
         """
         print("starting mask file generation...")
-        if not pre_dict:
-            indx_array = self.make_dict(start_str=start_str, end_str=end_str, frequency=dict_freq, savepath=dictsave)
-            
-        if pre_dict:
-            with open(f'{self.main_directory}/mcs_dict_{dict_freq}.pkl', 'rb') as handle:
-                indx_array = pickle.load(handle)
+        indx_array = self.open_dictionary(dict_freq=dict_freq)
         
         # if restarting job of file creation
         if file_indx:
@@ -291,11 +283,57 @@ class GenerateTrainData:
         for indx_val, indx_dt in indx_array.items():
             
             mask = self.open_mask_file(year=indx_dt.strftime('%Y'), month=indx_dt.strftime('%m'), 
-                                           day=indx_dt.strftime('%d'), hour=indx_dt.strftime('%H'))
+                                       day=indx_dt.strftime('%d'), hour=indx_dt.strftime('%H'))
             
             tmpmask = mask.isel(time=0)[self.msk_var].fillna(0.0)
             
         tmpmask.to_netcdf(f"{self.main_directory}/dl_files/{dict_freq}/mask_{self.msk_var}_ID{indx_val}.nc")
-                
         print("Job complete!")
+        return
+
+    def generate_train_stats(self, filename, variable, dict_freq='3H',
+                             lat='latitude', lon='longitude', author=None):
+        """
+        Generate statistics for normalizing the training data prior to training ML.
+        
+        Args:
+            filename (str): Variable used to name training file. 
+            variable (str): Variable name within the file.
+            dict_freq (str): Files of specific hourly time spacing. Defaults to ``3H`` for 3-hourly.
+            lat (str): Latitude coordinate name. Defaults to ``latitude``.
+            lon (str): Longitude coordinate name. Defaults to ``longitude``.
+            author (str): Author of file. Defaults to None.
+        """
+        indx_array = self.open_dictionary(dict_freq=dict_freq)
+        
+        # initialize a blank list to use for storing mean values 
+        mean_list = []
+        stds_list = []
+        maxs_list = []
+        mins_list = []
+        
+        for indx_val in indx_array.keys():
+            # open and extract variable
+            tmp = xr.open_dataset(f"{self.main_directory}/dl_files/{dict_freq}/file_{filename}_ID{indx_val}.nc")[variable]
+            
+            # compute stats for each file
+            mean_list.append(tmp.mean(dim=[lat,lon], skipna=True).values)
+            stds_list.append(tmp.std( dim=[lat,lon], skipna=True).values)
+            maxs_list.append(tmp.max( dim=[lat,lon], skipna=True).values)
+            mins_list.append(tmp.min( dim=[lat,lon], skipna=True).values)
+        
+        mean_array = np.array([mean_list]).squeeze()
+        stds_array = np.array([stds_list]).squeeze()
+        maxs_array = np.array([maxs_list]).squeeze()
+        mins_array = np.array([mins_list]).squeeze()
+        
+        # create xarray dataset
+        xarray_array = xr.Dataset({'averages': (['id'], mean_array),
+                                   'sigma':    (['id'], stds_array),
+                                   'maxs':     (['id'], maxs_array),
+                                   'mins':     (['id'], mins_array)},
+                                 coords = {'id': (['id'], np.array(list(indx_array.keys())))},
+                                 attrs = {'File Author' : author})
+        # save file
+        xarray_array.to_netcdf(f'{self.main_directory}/dl_files/{dict_freq}/stats_era5_{filename}.nc')
         return
