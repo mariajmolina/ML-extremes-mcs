@@ -32,10 +32,12 @@ class MCSstats:
             lon (str): Longitude coordinate name in mask file. Defaults to ``lon``.
         """
         y = np.empty((len(self.IDs), *self.dim))
+        
         if not return_coords:
             for indx, ID in enumerate(self.IDs):
                 y[indx,:,:] = xr.open_dataset(f"{self.mcs_path}/mask_{self.msk_var}_ID{ID}.nc")[self.msk_var].values
             return y
+        
         if return_coords:
             for indx, ID in enumerate(self.IDs):
                 y[indx,:,:] = xr.open_dataset(f"{self.mcs_path}/mask_{self.msk_var}_ID{ID}.nc")[self.msk_var].values
