@@ -1,7 +1,8 @@
-import xarray as xr
 import numpy as np
 import pandas as pd
 import calendar
+import xarray as xr
+
 
 def extract_train_stats(filepath, variable, fileIDs):
     """
@@ -20,6 +21,7 @@ def extract_train_stats(filepath, variable, fileIDs):
     maxs = ds['maxs'][fileIDs]
     return avgs, sigs, mins, maxs
 
+
 def z_score(da, avgs, stds):
     """
     Compute z-score for training data.
@@ -31,6 +33,7 @@ def z_score(da, avgs, stds):
     """
     return (da - np.nanmean(avgs))/np.nanstd(stds)
 
+
 def min_max_scale(da, mins, maxs):
     """
     Scale training data by minimum and maximum values.
@@ -40,6 +43,9 @@ def min_max_scale(da, mins, maxs):
         maxs (array): Array of maximum values for training variable.
     """
     if np.nanmax(maxs) == np.nanmin(mins):
+        
         raise Exception("Max and min are equal to each other!")
+        
     if np.nanmax(maxs) != np.nanmin(mins):
+        
         return (da - np.nanmin(mins))/(np.nanmax(maxs) - np.nanmin(mins))

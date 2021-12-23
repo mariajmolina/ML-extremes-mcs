@@ -2,9 +2,9 @@
 ############## Author: Maria J. Molina, molina@ucar.edu
 ######################################################################
 
-import mcs_stats
 import numpy as np
 import xarray as xr
+import mcs_stats
 
 ######################################################################
 ######################################################################
@@ -26,10 +26,12 @@ def iterate_mcs_stats(years, mcspath, ens_num='era5', msk_var='cloudtracknumber'
     """
     # loop over years
     for i, yr in enumerate(years):
+        
         # instantiate MCS stats class object
         mcsstat = mcs_stats.MCSstats(mcs_path=mcspath, 
                                      dim=(101, 161), 
                                      msk_var=msk_var)
+        
         # open files
         masks, mons, lat, lon = mcsstat.open_masks_era5trkr(year=yr, return_coords=True)
 
@@ -40,6 +42,7 @@ def iterate_mcs_stats(years, mcspath, ens_num='era5', msk_var='cloudtracknumber'
 
         #loop over 12 months and compute stats and stick values into array
         for m in np.arange(0,12,1):
+            
             ma_nottracked[m,:,:] = mcsstat.nontracked_total_grid(masks[np.argwhere(mons==m+1)[:,0],:,:])
             ma_tracked[m,:,:] = mcsstat.tracked_total_grid(masks[np.argwhere(mons==m+1)[:,0],:,:])
             ma_trackedtotal[m] = mcsstat.tracked_total(masks[np.argwhere(mons==m+1)[:,0],:,:])
@@ -56,14 +59,18 @@ def iterate_mcs_stats(years, mcspath, ens_num='era5', msk_var='cloudtracknumber'
                          'lon':(['x'], lon),
                          'lat':(['y'], lat),
                         })
+        
         # assign attrs
         data_assemble.attrs['Author'] = 'Maria J. Molina'
         data_assemble.attrs['Contact'] = 'molina@ucar.edu'
         data_assemble.attrs['Data'] = 'MCS stats'
+        
         # save the file
         data_assemble.to_netcdf(f'{mcspath}/mcs_stats_{msk_var}_{str(yr)}.nc')
+        
         print(f"year {str(yr)} done")
     return
+
 
 def main():
     """

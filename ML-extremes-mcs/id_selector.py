@@ -1,8 +1,9 @@
-import xarray as xr
 import numpy as np
-import pandas as pd
 import calendar
 import pickle
+import pandas as pd
+import xarray as xr
+
 
 class IDSelector:
     """
@@ -39,6 +40,7 @@ class IDSelector:
         self.percent_validate = percent_validate
         self.msk_var = mask_var
         
+        
     def open_dictionary(self, dict_freq='3H'):
         """
         Open presaved dictionary containing file respective IDs.
@@ -46,15 +48,19 @@ class IDSelector:
             dict_freq (boolean): If ``True``, open pre-saved dictionary file of indices. Defaults to ``True``.
         """
         with open(f'{self.main_directory}/mcs_dict_{dict_freq}.pkl', 'rb') as handle:
+            
             indx_array = pickle.load(handle)
+            
         return indx_array
 
+    
     def make_years(self):
         """
         Returns array of years for data generation.
         """
         return pd.date_range(start=str(self.start_year)+'-01-01', end=str(self.end_year)+'-01-01', freq='AS-JAN').year
 
+    
     def open_mask_file(self, dict_freq=None, indx_val=None):
         """
         Open the MCS mask file.
@@ -62,8 +68,9 @@ class IDSelector:
             dict_freq (str): Hourly frequency for training (e.g., ``3H``). Defaults to ``None``.
             indx_val (str): Defaults to ``None``.
         """
-        return xr.open_dataset(f"{self.main_directory}/dl_files/{dict_freq}/mask_{self.msk_var}_ID{indx_val}.nc")
+        return xr.open_dataset(f"{self.main_directory}/dl_files/{dict_freq}/mask/mask_{self.msk_var}_ID{indx_val}.nc")
 
+    
     def generate_IDarray(self, dict_freq='3H'):
         """
         Generate an array of the respective IDs based on predefined choices.
@@ -72,6 +79,7 @@ class IDSelector:
             dict_freq (str): Files of specific hourly time spacing. Defaults to ``3H`` for 3-hourly.
         """
         print("starting ID generation...")
+        
         if not self.year_only:
             yr_array = self.make_years()
         
@@ -115,6 +123,7 @@ class IDSelector:
         print("ID generation complete.")
         return np.array(ID_list)
 
+    
     def generate_traintest_split(self, allIDs, seed=0):
         """
         Split the IDs into a train and a test set. The train set will be used to train DL model and
@@ -138,6 +147,7 @@ class IDSelector:
             
             trainnum = int(allIDs.shape[0] * (self.percent_train - self.percent_validate))
             validnum = int(allIDs.shape[0] * self.percent_validate)
+            
             trainIDs = permIDs[:trainnum]
             validIDs = permIDs[trainnum:trainnum + validnum]
             testIDs = permIDs[trainnum + validnum:]
