@@ -2,6 +2,7 @@ import numpy as np
 import xarray as xr
 import torch
 from torch.utils.data import Dataset
+import dl_stats
 
 """
 
@@ -13,23 +14,19 @@ Author: Maria J. Molina, NCAR (molina@ucar.edu).
 
 class CustomDataset(Dataset):
     
-    def __init__(self, list_IDs, path_dataID, variable, h_num=None, height=None, 
-                 batch_size=32, dim=(121, 321), n_channels=1, n_classes=2, shuffle=False, 
-                 stats_path=None, norm=None, mask_var='cloudtracknumber'):
+    def __init__(self, list_IDs, path_dataID, variable, batch_size=32, dim=(121, 321), 
+                 n_channels=1, n_classes=2, shuffle=False, norm=None, mask_var='cloudtracknumber'):
         """
         Initialization.
         """
         self.list_IDs = list_IDs
         self.path_dataID = path_dataID
         self.variable = variable
-        self.h_num = h_num
-        self.height = height
         self.batch_size = batch_size
         self.dim = dim
         self.n_channels = n_channels
         self.n_classes = n_classes
         self.shuffle = shuffle
-        self.stats_path = stats_path
         
         if norm != 'zscore' and norm != 'minmax' and norm != None:
             raise Exception("Please set norm to ``zscore``, ``minmax``, or ``None``.")
@@ -125,10 +122,10 @@ class CustomDataset(Dataset):
         for j, VAR in enumerate(self.variable):
             
             if self.norm == 'zscore':
-                a_[:, j], b_[:, j], _, _ = dl_stats.extract_train_stats(self.stats_path, VAR, self.list_IDs)
+                a_[:, j], b_[:, j], _, _ = dl_stats.extract_train_stats(self.path_dataID+'/'+VAR+'/', VAR, self.list_IDs)
             
             if self.norm == 'minmax':
-                _, _, a_[:, j], b_[:, j] = dl_stats.extract_train_stats(self.stats_path, VAR, self.list_IDs)
+                _, _, a_[:, j], b_[:, j] = dl_stats.extract_train_stats(self.path_dataID+'/'+VAR+'/', VAR, self.list_IDs)
         
         return a_, b_
     
