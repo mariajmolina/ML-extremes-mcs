@@ -3,6 +3,8 @@ import pandas as pd
 import tensorflow as tf
 from tensorflow import keras
 from tensorflow.keras import layers
+from tensorflow.keras import regularizers
+
 
 class DLFrontStyle:
     """
@@ -43,7 +45,7 @@ class DLFrontStyle:
         
     """
     def __init__(self, variable, dim=(105, 161), 
-                 learning_rate=0.0001, epochs=10, 
+                 learning_rate=0.0001, scheduler=None, epochs=10, 
                  conv1=80, conv2=80, conv3=80,
                  acti1='relu', acti2='relu', acti3='relu',
                  k1_size=(5,5), k2_size=(5,5), k3_size=(5,5),
@@ -56,6 +58,7 @@ class DLFrontStyle:
         self.variable = variable
         self.dim = dim
         self.learning_rate = learning_rate
+        self.scheduler = scheduler
         self.epochs = epochs
         self.conv1 = conv1
         self.conv2 = conv2
@@ -76,6 +79,7 @@ class DLFrontStyle:
         self.model_save = model_save
         self.model_num = model_num
         
+        
     def compile_model(self):
         """
         Build and compile the DL-front style convolutional neural network.
@@ -84,6 +88,7 @@ class DLFrontStyle:
         """
         # generate input tensor
         inputs = keras.Input(shape=(*self.dim, len(self.variable,)))
+        
         # generate first convolutional layer
         conv2d = layers.Conv2D(self.conv1, 
                                self.k1_size,
@@ -94,12 +99,22 @@ class DLFrontStyle:
                                use_bias=True, 
                                kernel_initializer='glorot_uniform', 
                                bias_initializer='zeros', 
-                               #kernel_regularizer=l2(0.001), bias_regularizer=None, 
+                               kernel_regularizer=regularizers.l2(0.001), bias_regularizer=None, 
                                activity_regularizer=None, 
                                kernel_constraint=None, 
                                bias_constraint=None)
+        
         # pass input into first conv layer
         x = conv2d(inputs)
+        
+        # batch norm option
+        if self.batch_norm:
+            x = layers.BatchNormalization()(x)
+            
+        # spatial dropout
+        if self.spatial_drop:
+            x = layers.SpatialDropout2D(self.spatial_drop, data_format='channels_last')(x)
+            
         # generate second conv layer and pass data
         x = layers.Conv2D(self.conv2, 
                                self.k2_size,
@@ -110,10 +125,19 @@ class DLFrontStyle:
                                use_bias=True, 
                                kernel_initializer='glorot_uniform', 
                                bias_initializer='zeros', 
-                               #kernel_regularizer=l2(0.001), bias_regularizer=None, 
+                               kernel_regularizer=regularizers.l2(0.001), bias_regularizer=None, 
                                activity_regularizer=None, 
                                kernel_constraint=None, 
                                bias_constraint=None)(x)
+        
+        # batch norm option
+        if self.batch_norm:
+            x = layers.BatchNormalization()(x)
+            
+        # spatial dropout
+        if self.spatial_drop:
+            x = layers.SpatialDropout2D(self.spatial_drop, data_format='channels_last')(x)
+            
         # generate third conv layer and pass data
         x = layers.Conv2D(self.conv3, 
                                self.k3_size,
@@ -124,10 +148,19 @@ class DLFrontStyle:
                                use_bias=True, 
                                kernel_initializer='glorot_uniform', 
                                bias_initializer='zeros', 
-                               #kernel_regularizer=l2(0.001), bias_regularizer=None, 
+                               kernel_regularizer=regularizers.l2(0.001), bias_regularizer=None, 
                                activity_regularizer=None, 
                                kernel_constraint=None, 
                                bias_constraint=None)(x)
+        
+        # batch norm option
+        if self.batch_norm:
+            x = layers.BatchNormalization()(x)
+            
+        # spatial dropout
+        if self.spatial_drop:
+            x = layers.SpatialDropout2D(self.spatial_drop, data_format='channels_last')(x)
+        
         # generate final layer and pass data
         outputs = layers.Conv2DTranspose(self.output_shape, 
                                            self.k3_size,
@@ -142,31 +175,66 @@ class DLFrontStyle:
                                            activity_regularizer=None, 
                                            kernel_constraint=None, 
                                            bias_constraint=None)(x)
+        
         # assemble model
         model = keras.Model(inputs=inputs, outputs=outputs, name="dlfront_style")
+        
         # compile model
         model.compile(optimizer=keras.optimizers.Adam(lr=self.learning_rate), loss=self.loss_function, 
                       metrics=self.metrics)
+        
         # print model summary
         print(model.summary())
+        
+        #return to this later (saving model architecture)
         #keras.utils.plot_model(model, show_shapes=True, dpi=600)
         return model
     
-    def train_model(self, model, generator):
+    def scheduler_lr(self, epoch, lr):
+        """
+        This learning rate scheduler keeps the initial learning rate for the
+        first 10 epochs, then decreases it exponentially after that.
+        """
+        print(lr)
+        
+        if epoch < 10:
+            return lr
+        
+        else:
+            return (lr * tf.math.exp(-0.1)).numpy()
+    
+    
+    def train_model(self, model, generator, validation):
         """
         Train the compiled DLfront-style model.
         Args: 
             model (keras.engine.sequential.Sequential): Compiled convolutional neural network.
-            generator (DataGenerator(keras.utils.Sequence)): Keras data generator.
+            generator (DataGenerator(keras.utils.Sequence)): Keras training data generator.
+        Todo:
+            * insert validation_generator (DataGenerator(keras.utils.Sequence)): Keras validation data generator.
+            * insert class_weight into fit or fit_generator soon :)
         """
+        if self.scheduler:
+            callback = tf.keras.callbacks.LearningRateScheduler(self.scheduler_lr)
+            
+        if not self.scheduler:
+            callback = None
+            
         # generate history file during training for later viewing
-        history=model.fit(generator, epochs=self.epochs, verbose=self.verbose, 
-                                      ## use_multiprocessing=True,
-                                      workers=0)
+        history=model.fit(generator, epochs=self.epochs, verbose=self.verbose, callbacks=callback,
+                          #class_weight=[{0:0.35, 1:10.},{0:1., 1:1.}],
+                          validation_data=validation,
+                          use_multiprocessing=False,
+                          workers=0 # workers zero means use already spawned process
+                          )
+        
         if self.model_save:
+            
             pd.DataFrame(history.history).to_csv(f'/{self.model_save}/model_{self.model_num}.csv')
             keras.models.save_model(model, f"/{self.model_save}/model_{self.model_num}.h5")
+            
             if self.verbose == 1:
                 return model
+            
         if not self.model_save:
             return model
