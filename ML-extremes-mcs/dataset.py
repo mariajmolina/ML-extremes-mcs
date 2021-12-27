@@ -53,14 +53,19 @@ class CustomDataset(Dataset):
             index (int): Index that slices the provided file indices.
         """
         # Generate indexes of the batch
-        indexes = self.indexes[index*self.batch_size:(index+1)*self.batch_size]
+        indexes = self.indexes[index * self.batch_size : (index + 1) * self.batch_size]
         
         # Find list of IDs
         list_IDs_temp = [self.list_IDs[k] for k in indexes]
         
         # Generate data
         X, y = self.__data_generation(list_IDs_temp)
-        return X, y
+        
+        # convert to tensors and reshape (batch, channels, lat, lon)
+        X = torch.from_numpy(X).permute(0,3,1,2).float()
+        y = torch.from_numpy(y).permute(0,3,1,2).float()
+        
+        return {'train': X, 'test': y, 'minibatch_indx': indexes}
 
     
     def on_epoch_end(self):
@@ -70,6 +75,7 @@ class CustomDataset(Dataset):
         self.indexes = np.arange(len(self.list_IDs))
         if self.shuffle == True:
             np.random.shuffle(self.indexes)
+        return
 
             
     def era5_vars(self, analysis_variable):
@@ -157,8 +163,8 @@ class CustomDataset(Dataset):
         """
         tmp_y = xr.open_dataset(
             f"{self.path_dataID}/mask/mask_{self.msk_var}_ID{IDindx}.nc")[self.msk_var].values
-        y[indx,:,:,0] = np.where(tmp_y > 0, 1, 0)
-        y[indx,:,:,1] = np.ones(self.dim, dtype=int) - y[indx,:,:,0]
+        y[indx,:,:,1] = np.where(tmp_y > 0, 1, 0)
+        y[indx,:,:,0] = np.ones(self.dim, dtype=int) - y[indx,:,:,1]
         return y
     
     
