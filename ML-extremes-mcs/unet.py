@@ -178,12 +178,4 @@ class UNet(nn.Module):
         
         logits = self.outc(x)
         
-        #logits = xr.where(np.isnan(self.mask), 
-        #                  np.nan, 
-        #                  logits.cpu().detach().numpy()).reshape(-1, 1, 151*360)
-        #logits = logits[:, ~np.isnan(logits).any(axis=0)]
-        #logits = np.expand_dims(logits, axis=1)
-        
-        #logits = torch.tensor(logits, requires_grad=True).cuda()
-        
         return logits
