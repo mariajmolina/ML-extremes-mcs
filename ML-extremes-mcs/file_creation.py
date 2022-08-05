@@ -49,7 +49,7 @@ class GenerateTrainData:
         if self.variable == 'z' or self.variable == 'q':
             self.era_dir='e5.oper.an.pl'
             
-        if self.variable == '2d' or self.variable == '2t' or self.variable == 'sp':
+        if self.variable == '2d' or self.variable == '2t' or self.variable == 'sp' or self.variable == 'tcwv':
             self.era_dir='e5.oper.an.sfc'
             
         if self.variable == '10v' or self.variable == '10u' or self.variable == 'cape':
@@ -445,6 +445,8 @@ class GenerateTrainData:
             VAR = 'Z'
         if analysis_variable == 'q1000' or analysis_variable == 'q850':
             VAR = 'Q'
+        if analysis_variable == 'tcwv':
+            VAR = 'TCWV'
         
         assert (VAR), "Please enter an available variable."
         
