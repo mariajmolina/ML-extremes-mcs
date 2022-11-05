@@ -101,6 +101,8 @@ class CustomDataset(Dataset):
             VAR = 'LSP'
         if analysis_variable == 'cp':
             VAR = 'CP'
+        if analysis_variable == 'ttr':
+            VAR = 'TTR'
         if analysis_variable == 'w700':
             VAR = 'W'
         if analysis_variable == 'u850' or analysis_variable == 'u500':
