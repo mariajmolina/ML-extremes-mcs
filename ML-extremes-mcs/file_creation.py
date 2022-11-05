@@ -58,7 +58,7 @@ class GenerateTrainData:
         if self.variable == '10v' or self.variable == '10u' or self.variable == 'cape':
             self.era_dir = 'e5.oper.an.sfc'
 
-        if self.variable == 'lsp' or self.variable == 'cp':
+        if self.variable == 'lsp' or self.variable == 'cp' or self.variable == 'ttr':
             self.era_dir = 'cesm_mcs'
 
     def make_dict(self, start_str, end_str, frequency='3H', savepath=None):
@@ -164,10 +164,10 @@ class GenerateTrainData:
 
         return data
 
-    def open_precipitation_file(self, year=None, month=None, day=None, hour=None):
+    def open_accum_file(self, year=None, month=None, day=None, hour=None):
         """
         Returns opened and sliced spatial region of data for respective year.
-        Data already processed with ``era5_precip.py``.
+        Data already processed with ``era5_precipitation.py`` or ``era5_ttr.py``.
 
         Args:
             year (str): Year for opening file. Defaults to ``None``.
@@ -347,13 +347,12 @@ class GenerateTrainData:
 
             if self.era_dir == 'cesm_mcs':
 
-                data = self.open_precipitation_file(year=indx_dt.strftime('%Y'),
+                data = self.open_accum_file(year=indx_dt.strftime('%Y'),
                                                     month=indx_dt.strftime('%m'),
                                                     day=indx_dt.strftime('%d'),
                                                     hour=indx_dt.strftime('%H'))
 
-            tmpdata = self.slice_grid(
-                mask, data, lat='latitude', lon='longitude')
+            tmpdata = self.slice_grid(mask, data, lat='latitude', lon='longitude')
 
             data = None
 
@@ -441,6 +440,8 @@ class GenerateTrainData:
             VAR = 'LSP'
         if analysis_variable == 'cp':
             VAR = 'CP'
+        if analysis_variable == 'ttr':
+            VAR = 'TTR'
         if analysis_variable == 'w700':
             VAR = 'W'
         if analysis_variable == 'u850' or analysis_variable == 'u500':
