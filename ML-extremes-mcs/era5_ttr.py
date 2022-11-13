@@ -33,6 +33,9 @@ def era5_ttr_hourly(glob_string, variable, save_directory):
         tmp = ds.stack(time=['forecast_initial_time', 'forecast_hour'])
 
         tmp = tmp.assign_coords(time=time_array)
+        
+        # add negative sign due to flux pointing downwards in ERA5
+        tmp['TTR'] = -tmp['TTR']
 
         tmp.to_netcdf(save_directory+'/'+filename.split('/')[-1])
 
