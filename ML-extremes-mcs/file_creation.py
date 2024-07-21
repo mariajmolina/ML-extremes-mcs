@@ -2,6 +2,7 @@ import numpy as np
 import itertools
 from calendar import monthrange
 import dateutil.relativedelta
+from datetime import timedelta 
 import pickle
 import pandas as pd
 import xarray as xr
@@ -58,7 +59,7 @@ class GenerateTrainData:
         if self.variable == '10v' or self.variable == '10u' or self.variable == 'cape':
             self.era_dir = 'e5.oper.an.sfc'
 
-        if self.variable == 'lsp' or self.variable == 'cp' or self.variable == 'ttr':
+        if self.variable == 'lsp' or self.variable == 'cp' or self.variable == 'ttr' or self.variable == 'tp':
             self.era_dir = 'cesm_mcs'
 
     def make_dict(self, start_str, end_str, frequency='3H', savepath=None):
@@ -196,17 +197,17 @@ class GenerateTrainData:
             if firstdate <= pd.to_datetime(f'{year}-{month}-{day}-{hour}') <= secondate - dateutil.relativedelta.relativedelta(hours=1):
 
                 data = xr.open_mfdataset(
-                    f'{self.era5_directory}/{self.era_dir}/*_{self.variable}.*.{y1}{m1}1606_{y2}{m2}0106.nc')
+                    f'{self.era5_directory}/{self.era_dir}/*{self.variable}.*.{y1}{m1}1606_{y2}{m2}0106.nc')
 
             elif secondate <= pd.to_datetime(f'{year}-{month}-{day}-{hour}') <= thirddate - dateutil.relativedelta.relativedelta(hours=1):
 
                 data = xr.open_mfdataset(
-                    f'{self.era5_directory}/{self.era_dir}/*_{self.variable}.*.{y2}{m2}0106_{y3}{m3}1606.nc')
+                    f'{self.era5_directory}/{self.era_dir}/*{self.variable}.*.{y2}{m2}0106_{y3}{m3}1606.nc')
 
             elif thirddate <= pd.to_datetime(f'{year}-{month}-{day}-{hour}') <= fourtdate - dateutil.relativedelta.relativedelta(hours=1):
 
                 data = xr.open_mfdataset(
-                    f'{self.era5_directory}/{self.era_dir}/*_{self.variable}.*.{y3}{m3}1606_{y4}{m4}0106.nc')
+                    f'{self.era5_directory}/{self.era_dir}/*{self.variable}.*.{y3}{m3}1606_{y4}{m4}0106.nc')
 
         return data
     
@@ -348,9 +349,9 @@ class GenerateTrainData:
             if self.era_dir == 'cesm_mcs':
 
                 data = self.open_accum_file(year=indx_dt.strftime('%Y'),
-                                                    month=indx_dt.strftime('%m'),
-                                                    day=indx_dt.strftime('%d'),
-                                                    hour=indx_dt.strftime('%H'))
+                                            month=indx_dt.strftime('%m'),
+                                            day=indx_dt.strftime('%d'),
+                                            hour=indx_dt.strftime('%H'))
 
             tmpdata = self.slice_grid(mask, data, lat='latitude', lon='longitude')
 
@@ -440,6 +441,8 @@ class GenerateTrainData:
             VAR = 'LSP'
         if analysis_variable == 'cp':
             VAR = 'CP'
+        if analysis_variable == 'tp':
+            VAR = 'TP'
         if analysis_variable == 'ttr':
             VAR = 'TTR'
         if analysis_variable == 'w700':
@@ -469,8 +472,16 @@ class GenerateTrainData:
             # open and extract variable
             tmp = xr.open_dataset(
                 f"{self.main_directory}/dl_files/{dict_freq}/{analysis_variable}/file_{analysis_variable}_ID{indx_val}.nc")
-
-            date_list.append(tmp['utc_date'].values)
+                
+            try:
+                date_list.append(tmp['utc_date'].values)
+                
+            except KeyError:
+                date_list.append(
+                    np.array(
+                        (pd.to_datetime(tmp['time'].values) - timedelta(hours=6)).strftime('%Y%m%d%H'),dtype=np.int32)
+                )
+                
             tmp = tmp[VAR]
 
             # compute stats for each file
