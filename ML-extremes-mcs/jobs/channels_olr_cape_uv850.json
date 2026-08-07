@@ -1,0 +1,18 @@
+[
+  {"kind": "forecast",
+   "dir": "/glade/campaign/collections/rda/data/d633000/e5.oper.fc.sfc.accumu",
+   "negate": true,
+   "mean": 916080, "std": 139413},
+  {"kind": "analysis",
+   "dir": "/glade/campaign/collections/rda/data/d633000/e5.oper.an.sfc",
+   "var": "CAPE", "glob": "*_cape.*.nc",
+   "mean": null, "std": null},
+  {"kind": "analysis",
+   "dir": "/glade/campaign/collections/rda/data/d633000/e5.oper.an.pl",
+   "var": "U", "glob": "*128_131_u.*.nc", "level": 850,
+   "mean": null, "std": null},
+  {"kind": "analysis",
+   "dir": "/glade/campaign/collections/rda/data/d633000/e5.oper.an.pl",
+   "var": "V", "glob": "*128_132_v.*.nc", "level": 850,
+   "mean": null, "std": null}
+]
